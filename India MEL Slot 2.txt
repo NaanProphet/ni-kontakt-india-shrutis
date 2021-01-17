@@ -3,6 +3,8 @@ India - Melodic Main
 Author: Native Instruments
 Written by: Nikolas Jeroma
 Modified: April 18, 2016
+Hacked by: Krishna Bhamidipati
+Last hack: January 16, 2021
 *************************************************}
 
 on init
@@ -899,6 +901,7 @@ on init
 	declare ui_menu $drone_menu
 	add_menu_item($drone_menu,"5-12-12-1",0)
 	add_menu_item($drone_menu,"4-12-12-1",1)
+	add_menu_item($drone_menu,"6-12-12-1",2)
 	set_control_par(get_ui_id($drone_menu),$CONTROL_PAR_WIDTH,107)
 	set_control_par(get_ui_id($drone_menu),$CONTROL_PAR_HEIGHT,28)
 	set_control_par(get_ui_id($drone_menu),$CONTROL_PAR_FONT_TYPE,$FONT_TYPE_SOUND_MENU)
@@ -1574,6 +1577,20 @@ on init
 	{A}		45,50,50,33,...
 	{Bb}	46,51,51,34,...
 	{B}		40,47,47,35)
+
+	declare %tanpura_notes_3[12 * $NUM_OF_NOTES_TANPURA] := (...
+	{C}		45,48,48,36,...
+	{C#}	46,49,49,37,...
+	{D}		47,50,50,38,...
+	{Eb}	48,51,51,39,...
+	{E}		49,52,52,40,...
+	{F}		43,48,48,36,...
+	{F#}	44,49,49,37,...
+	{G}		45,50,50,38,...
+	{Ab}	46,51,51,39,...
+	{A}		42,45,45,33,...
+	{Bb}	43,46,46,34,...
+	{B}		44,47,47,35)
 	
 	{sitar, for original c# string}
 	declare %sitar1_root_data[12] := (...
@@ -2917,6 +2934,11 @@ function update_play_buffer
 				%play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_2[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count]
 				%alt_play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_2[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count]
 				
+			case 2
+				
+				%play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_3[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count]
+				%alt_play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_3[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count]
+				
 		end select
 		
 		
@@ -2960,6 +2982,11 @@ function update_play_buffer
 					
 					%fem_play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_2[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count] + 12
 					%fem_alt_play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_2[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count] + 12
+					
+				case 2
+					
+					%play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_3[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count]
+					%alt_play_buffer[$count * $NUM_NOTE_PAR + 1] := %tanpura_notes_3[$root_note_sld * $NUM_OF_NOTES_TANPURA + $count]
 					
 			end select
 			
