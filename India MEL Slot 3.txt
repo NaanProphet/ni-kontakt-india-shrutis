@@ -1,0 +1,2464 @@
+{***********************************************
+India Melodic - Mixer
+Author: Native Instruments
+Written by: Nikolas Jeroma
+Modified: January 13, 2016
+*************************************************}
+
+on init
+
+{ function info }
+	
+	
+	{
+	
+	
+	}
+	
+{function } {}
+
+{ function constants}
+
+	{GENERAL}
+	message("")
+	set_script_title("Mixer")
+	set_skin_offset(573*4){4}
+	set_ui_height_px(482)
+	make_perfview
+	
+	declare $count
+	declare $count_2
+	declare $count_3 {used in load preset function}
+	declare $count_4 {used in save preset function}
+	
+	declare $init_flag := 1
+	
+	{MAIN}
+	declare const $HIDE_AUTOMATION_SLIDERS := 1 {must be set to 1}
+	declare const $CREATE_AUTOMATION_ID := 0
+	declare const $NUM_OF_CHANNELS := 2 {excluding master and reverb channel}
+	declare const $SHOW_EXPORT_BUTTON := 0 {must be set to 0}
+	
+	{FX VALUES}
+	declare const $AMBI_LEVEL_50 :=  315000 {-6 dB}
+	declare const $AMBI_LEVEL_100 := 367000 {-2 dB}
+	
+	declare const $DRIVE_AMOUNT_0 :=   500000
+	declare const $DRIVE_AMOUNT_50 :=  800000
+	declare const $DRIVE_AMOUNT_100 := 1000000
+	
+	declare const $DRIVE_OUTPUT_0 :=   397000 {0}
+	declare const $DRIVE_OUTPUT_50 :=  300000 {-7}
+	declare const $DRIVE_OUTPUT_100 := 280000 {-10}
+	
+	declare const $PUNCH_ATTACK_0 :=   500000
+	declare const $PUNCH_ATTACK_50 :=  700000
+	declare const $PUNCH_ATTACK_100 := 800000
+	
+	declare const $PUNCH_SUSTAIN_0 :=   500000
+	declare const $PUNCH_SUSTAIN_50 :=  400000 {-20}
+	declare const $PUNCH_SUSTAIN_100 := 300000 {-40}
+	
+	declare const $PUNCH_OUTPUT_0 :=   397000 {0}
+	declare const $PUNCH_OUTPUT_50 :=  382000 {-1}
+	declare const $PUNCH_OUTPUT_100 := 368000 {-2}
+	
+	declare const $TAPE_GAIN_0 :=   0
+	declare const $TAPE_GAIN_50 :=  500000
+	declare const $TAPE_GAIN_100 := 800000
+	
+	declare const $TAPE_WARMTH_0 :=   500000
+	declare const $TAPE_WARMTH_50 :=  700000
+	declare const $TAPE_WARMTH_100 := 800000
+	
+	declare const $TAPE_OUTPUT_0 :=   397000 {0}
+	declare const $TAPE_OUTPUT_50 :=  428000 {2}
+	declare const $TAPE_OUTPUT_100 := 481000 {5}
+	
+	declare const $SCOMP_THRESHOLD_0 := 850000 {14dB}
+	declare const $SCOMP_THRESHOLD_50 := 403000 {-3.9dB}
+	declare const $SCOMP_THRESHOLD_100 := 0 {-20dB}
+	
+	declare const $SCOMP_MAKEUP_0 := 200195 {0dB}
+	declare const $SCOMP_MAKEUP_50 := 460000 {6.5dB}
+	declare const $SCOMP_MAKEUP_100 := 919000 {18dB}
+	
+	{SLOTS}
+	{channel and master}
+	declare const $SPREAD_1_SLOT := 6
+	declare const $SEND_SLOT := 7
+	
+	{channel only}
+	declare const $EQ_SLOT := 1
+	declare const $DRIVE_SLOT := 2
+	declare const $EQ_MORPH_SLOT_IDX := 3
+	declare const $SPREAD_2_SLOT := 5 {used for solo and mute}
+	
+	{master only}
+	declare const $MST_EQ_SLOT := 0
+	declare const $MST_PNCH_SLOT := 1
+	declare const $MST_COMP_SLOT := 2
+	declare const $MST_AMBI_SLOT := 3
+	declare const $MST_TAPE_SLOT := 4
+	
+	declare const $INVERT_SLOT := 5
+	declare const $REVERB_SLOT := 0 {send effect}
+	
+	{IR SAMPLE}
+	declare !ir_sample_names[5]
+	!ir_sample_names[0] := "Room"
+	!ir_sample_names[1] := "Studio"
+	!ir_sample_names[2] := "Hall"
+	!ir_sample_names[3] := "Church"
+	!ir_sample_names[4] := "Taj Mahal"
+	
+	
+	{MIX PRESETS}
+	declare const $NUM_PAR_PER_CHANNEL := 12 {the number of parameters to be stored per channel} 
+	declare const $NUM_PAR_PER_MIXPRESET := ($NUM_OF_CHANNELS + 2) * $NUM_PAR_PER_CHANNEL {the number of values that are to be stored with each preset}
+	declare const $NUM_OF_FACTORY_MIXPRESETS := 8 {the number of hard-coded factory presets}
+	
+	{mixer preset factory names}
+	declare !factory_mix_preset_names[$NUM_OF_FACTORY_MIXPRESETS]
+	!factory_mix_preset_names[0] := "Classic"
+	!factory_mix_preset_names[1] := "Modern"
+	!factory_mix_preset_names[2] := "Vintage"
+	!factory_mix_preset_names[3] := "Mono"
+	!factory_mix_preset_names[4] := "Ambient"
+	!factory_mix_preset_names[5] := "Hyped"
+	!factory_mix_preset_names[6] := "Relaxed"
+	!factory_mix_preset_names[7] := "Init"
+	
+	{FONTS}
+	declare const $FONT_TYPE_OUTPUT_MENU := 17
+	declare const $FONT_TYPE_SOUND_MENU := 14
+	
+	{PATHS}
+	declare @libary_path
+	@libary_path := get_folder($GET_FOLDER_LIBRARY_DIR)
+	
+	declare @mix_preset_path
+	
+	{other}
+	declare const $LOOP_WAIT := 75
+	declare const $MAX_VOLUME := 426000 {6dB}
+	declare const $MAX_VOLUME_VERB := 426000 {6dB}
+	
+	
+	
+
+{function } {}
+
+{ function instrument_dentifier OK }
+	
+	{copy from main script}
+	
+	declare const $MAX_NUM_OF_PROTOTYPES := 9 {CAUTION}
+	
+	declare $INSTRUMENT_ID
+	make_instr_persistent($INSTRUMENT_ID)
+	read_persistent_var($INSTRUMENT_ID)
+	
+	declare const $BANSURI_ID := 0
+	declare const $HARMONIUM_ID := 1
+	declare const $SANTUR_ID := 2
+	declare const $SITAR_ID := 3
+	declare const $TANPURA_ID := 4
+	declare const $TUMBI_ID := 5
+	
+	
+	{volume channel names}
+	declare !channel_names[$NUM_OF_CHANNELS + 2]
+	
+	select ($INSTRUMENT_ID)
+		case $BANSURI_ID
+			!channel_names[0] := "Bansuri"
+			!channel_names[1] := "Drone"
+		case $HARMONIUM_ID
+			!channel_names[0] := "Harmonium"
+			!channel_names[1] := "Drone"
+		case $SANTUR_ID
+			!channel_names[0] := "Santur"
+			!channel_names[1] := "Drone"
+		case $SITAR_ID
+			!channel_names[0] := "Sitar"
+			!channel_names[1] := "Drone"
+		case $TANPURA_ID
+			!channel_names[0] := "Tanpura"
+			!channel_names[1] := "Drone"
+		case $TUMBI_ID
+			!channel_names[0] := "Tumbi"
+			!channel_names[1] := "Drone"
+		
+	end select
+	
+	!channel_names[2] := "Reverb"
+	!channel_names[3] := "Master"
+	
+
+	{instrument suffix}
+	declare !instrument_id_suffix[$MAX_NUM_OF_PROTOTYPES]
+	!instrument_id_suffix[0] := "10 - Bansuri/"
+	!instrument_id_suffix[1] := "11 - Harmonium/"
+	!instrument_id_suffix[2] := "12 - Santur/"
+	!instrument_id_suffix[3] := "13 - Sitar/"
+	!instrument_id_suffix[4] := "14 - Tanpura/"
+	!instrument_id_suffix[5] := "15 - Tumbi/"
+	
+{function } {}
+
+{ function gui_data OK }
+	
+	{1 if the channel should be visible, 0 otherwise}
+	
+	{
+	declare %channel_selector_visible[$MAX_NUM_OF_PROTOTYPES * 6] := (...
+	1,1,1,1,0,1,...
+	1,1,1,0,0,1,...
+	1,1,1,0,0,1,...
+	1,1,1,1,1,1,...
+	1,1,1,1,1,1,...
+	1,1,1,1,1,1,...
+	1,1,1,1,1,1,...
+	1,1,1,1,1,1,...
+	1,1,1,1,1,1,...
+	1,1,1,1,1,1,...
+	1,0,0,0,0,1,...
+	1,0,0,0,0,1,...
+	1,0,0,0,0,1,...
+	1,0,0,0,0,0)}
+
+{function } {}
+
+{ function gui_pan_send }
+	
+	{pan}
+	declare ui_slider $pan_0_sld (0,1000000)
+	declare ui_slider $pan_1_sld (0,1000000)
+	make_persistent($pan_0_sld)
+	make_persistent($pan_1_sld)
+	
+	declare %pan_slider_ids[$NUM_OF_CHANNELS]
+	%pan_slider_ids[0] := get_ui_id($pan_0_sld)
+	%pan_slider_ids[1] := get_ui_id($pan_1_sld)
+	
+	{send}
+	declare ui_slider $send_0_sld (0,1000)
+	declare ui_slider $send_1_sld (0,1000)
+	make_persistent($send_0_sld)
+	make_persistent($send_1_sld)
+	
+	declare %send_slider_ids[$NUM_OF_CHANNELS]
+	%send_slider_ids[0] := get_ui_id($send_0_sld)
+	%send_slider_ids[1] := get_ui_id($send_1_sld)
+
+	$count := 0
+	while($count < $NUM_OF_CHANNELS)
+	
+		set_control_par(%pan_slider_ids[$count],$CONTROL_PAR_VALUE,500000)
+		set_control_par(%pan_slider_ids[$count],$CONTROL_PAR_DEFAULT_VALUE,500000)
+		set_control_par(%pan_slider_ids[$count],$CONTROL_PAR_MOUSE_BEHAVIOUR,-200)
+		set_control_par_str(%pan_slider_ids[$count],$CONTROL_PAR_PICTURE,"ENS-Mixer-Wht-Knob")
+		set_control_par_str(%pan_slider_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,!channel_names[$count] & " Pan")
+		
+		set_control_par(%send_slider_ids[$count],$CONTROL_PAR_VALUE,0)
+		set_control_par(%send_slider_ids[$count],$CONTROL_PAR_DEFAULT_VALUE,723)
+		set_control_par(%send_slider_ids[$count],$CONTROL_PAR_MOUSE_BEHAVIOUR,-200)
+		set_control_par_str(%send_slider_ids[$count],$CONTROL_PAR_PICTURE,"ENS-Mixer-Wht-Knob")
+		set_control_par_str(%send_slider_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,!channel_names[$count] & " Send")
+		
+		set_control_par(%send_slider_ids[$count],$CONTROL_PAR_POS_X,395 + ($count * 62))
+		set_control_par(%send_slider_ids[$count],$CONTROL_PAR_POS_Y,109)
+		
+		set_control_par(%pan_slider_ids[$count],$CONTROL_PAR_POS_X,395 + ($count * 62))
+		set_control_par(%pan_slider_ids[$count],$CONTROL_PAR_POS_Y,162)
+		
+		set_control_par_str(%pan_slider_ids[$count],$CONTROL_PAR_HELP,"Pan: Sets the panorama position.")
+		set_control_par_str(%send_slider_ids[$count],$CONTROL_PAR_HELP,"Reverb Send Amount: Controls the amount of signal sent from this channel to the reverb effect.")
+		
+		
+		inc ($count)
+		
+	end while
+	
+	
+	{hide send and pan with certain instruments}
+	
+	{
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+		
+		if (%channel_selector_visible[$count + ($INSTRUMENT_ID * 6)] = 0)
+			
+			set_control_par(%pan_slider_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+			set_control_par(%send_slider_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+			
+		end if
+		
+		inc($count)
+	end while}
+	
+{function } {}
+
+{ function gui_solo_mute }
+	
+	{solo buttons}
+	declare ui_switch $solo_0_btn
+	declare ui_switch $solo_1_btn
+	declare ui_switch $solo_rvb_btn
+	make_persistent($solo_0_btn)
+	make_persistent($solo_1_btn)
+	make_persistent($solo_rvb_btn)
+	
+	declare %solo_btn_ids[$NUM_OF_CHANNELS+1]
+	%solo_btn_ids[0] := get_ui_id($solo_0_btn)
+	%solo_btn_ids[1] := get_ui_id($solo_1_btn)
+	%solo_btn_ids[2] := get_ui_id($solo_rvb_btn)
+
+	{mute buttons}
+	declare ui_switch $mute_0_btn
+	declare ui_switch $mute_1_btn
+	declare ui_switch $mute_rvb_btn
+	make_persistent($mute_0_btn)
+	make_persistent($mute_1_btn)
+	make_persistent($mute_rvb_btn)
+	
+	declare %mute_btn_ids[$NUM_OF_CHANNELS+1]
+	%mute_btn_ids[0] := get_ui_id($mute_0_btn)
+	%mute_btn_ids[1] := get_ui_id($mute_1_btn)
+	%mute_btn_ids[2] := get_ui_id($mute_rvb_btn)
+	
+	
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS+1)
+		
+		set_control_par_str(%solo_btn_ids[$count],$CONTROL_PAR_TEXT,"")
+		set_control_par_str(%mute_btn_ids[$count],$CONTROL_PAR_TEXT,"")
+		
+		set_control_par(%solo_btn_ids[$count],$CONTROL_PAR_WIDTH,20)
+		set_control_par(%mute_btn_ids[$count],$CONTROL_PAR_WIDTH,20)
+		set_control_par(%solo_btn_ids[$count],$CONTROL_PAR_HEIGHT,20)
+		set_control_par(%mute_btn_ids[$count],$CONTROL_PAR_HEIGHT,20)
+		
+		set_control_par_str(%solo_btn_ids[$count],$CONTROL_PAR_PICTURE,"ENS-Mixer-Solo-Btn")
+		set_control_par_str(%mute_btn_ids[$count],$CONTROL_PAR_PICTURE,"ENS-Mixer-Mute-Btn")
+		
+		if ($count < $NUM_OF_CHANNELS)
+			set_control_par_str(%solo_btn_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,!channel_names[$count] & " Solo")
+			set_control_par_str(%mute_btn_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,!channel_names[$count] & " Mute")
+		else
+			set_control_par_str(%solo_btn_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,"Reverb" & " Solo")
+			set_control_par_str(%mute_btn_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,"Reverb" & " Mute")
+		end if
+		
+		{position}
+		set_control_par(%solo_btn_ids[$count],$CONTROL_PAR_POS_X,384 + ($count * 62))
+		set_control_par(%mute_btn_ids[$count],$CONTROL_PAR_POS_X,403 + ($count * 62))
+		set_control_par(%solo_btn_ids[$count],$CONTROL_PAR_POS_Y,205)
+		set_control_par(%mute_btn_ids[$count],$CONTROL_PAR_POS_Y,205)
+		
+		if ($count < $NUM_OF_CHANNELS)
+			
+			set_control_par_str(%solo_btn_ids[$count],$CONTROL_PAR_HELP,"Solo: Solos the selected channels.")
+			set_control_par_str(%mute_btn_ids[$count],$CONTROL_PAR_HELP,"Mute: Mutes the selected channel.")
+			
+		else
+			
+			set_control_par_str(%solo_btn_ids[$count],$CONTROL_PAR_HELP,"Reverb Solo: Solos the reverb channel.")
+			set_control_par_str(%mute_btn_ids[$count],$CONTROL_PAR_HELP,"Reverb Mute: Mutes the reverb channel. Muting the reverb also bypasses the convolution effect, thus reducing cpu usage.")
+			
+		end if
+		
+		inc($count)
+		
+	end while
+	
+	{hide}
+	
+	
+	{
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+		
+		if (%channel_selector_visible[$count + ($INSTRUMENT_ID * 6)] = 0)
+			
+			set_control_par(%solo_btn_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+			set_control_par(%mute_btn_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		end if
+		
+		inc($count)
+	end while}
+	
+{function } {}
+
+{ function gui_vol_slider }
+
+	declare %wurzel_zweidrittel[128] := (...
+		0,1000,1587,2080,2520,2924,3302,3659,4000,4327,...
+		4642,4946,5241,5529,5809,6082,6350,6611,6868,7120,...
+		7368,7612,7851,8088,8320,8549,8776,9000,9221,9439,...
+		9655,9868,10079,10288,10495,10700,10903,11103,11303,11500,...
+		11696,11890,12083,12274,12463,12651,12838,13024,13208,13391,...
+		13572,13752,13932,14110,14287,14462,14637,14811,14984,15155,...
+		15326,15496,15664,15833,16000,16166,16332,16496,16660,16823,...
+		16984,17146,17307,17467,17626,17784,17942,18099,18256,18411,...
+		18566,18720,18875,19028,19180,19332,19483,19634,19784,19934,...
+		20083,20231,20379,20527,20674,20820,20966,21111,21256,21400,...
+		21544,21688,21831,21973,22115,22256,22397,22538,22679,22818,...
+		22958,23097,23235,23373,23511,23648,23785,23921,24058,24193,...
+		24329,24463,24598,24733,24866,25000,25133,25266)
+	declare $cur_volume := ($MAX_VOLUME*1000)/21544
+	declare $cur_volume_verb := ($MAX_VOLUME_VERB*1000)/21544
+
+	declare ui_slider $vol_0_sld (0,127)
+	declare ui_slider $vol_1_sld (0,127)
+	declare ui_slider $rvb_vol_sld (0,127)
+	declare ui_slider $mst_vol_sld (0,127)
+	make_persistent($vol_0_sld)
+	make_persistent($vol_1_sld)
+	make_persistent($rvb_vol_sld)
+	make_persistent($mst_vol_sld)
+
+	declare %vol_slider_ids[$NUM_OF_CHANNELS + 2]
+	%vol_slider_ids[0] := get_ui_id($vol_0_sld)
+	%vol_slider_ids[1] := get_ui_id($vol_1_sld)
+	%vol_slider_ids[2] := get_ui_id($rvb_vol_sld)
+	%vol_slider_ids[3] := get_ui_id($mst_vol_sld)
+
+	$count := 0
+	while ($count < num_elements(%vol_slider_ids))
+		
+		set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_HEIGHT,148)
+		set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_WIDTH,25)
+		
+		set_control_par_str(%vol_slider_ids[$count],$CONTROL_PAR_AUTOMATION_NAME,!channel_names[$count] & " Vol")
+		
+		set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_VALUE,89)
+		set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_DEFAULT_VALUE,89)
+		
+		set_control_par_str(%vol_slider_ids[$count],$CONTROL_PAR_PICTURE,"ENS-Mixer-Fader-110-horizontal")
+		
+		set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_MOUSE_BEHAVIOUR,-900)
+		
+		set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_POS_Y,225)
+		
+		if ($count < $NUM_OF_CHANNELS)
+			
+			{channel vol}
+			set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_POS_X,385 + ($count * 62))
+			set_control_par_str(%vol_slider_ids[$count],$CONTROL_PAR_HELP,"Volume: Sets the volume level of the channel.")
+			
+		else
+			
+			{reverb vol}
+			if ($count = $NUM_OF_CHANNELS)
+				set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_POS_X,385 + ($count * 65))
+				set_control_par_str(%vol_slider_ids[$count],$CONTROL_PAR_HELP,"Reverb Volume: Sets the reverb return level.")
+					
+				
+				
+			else
+				
+				{master vol}
+				set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_POS_X,385 + ($count * 66))
+				set_control_par_str(%vol_slider_ids[$count],$CONTROL_PAR_HELP,"Master Volume: Sets the volume level of the master bus.")
+				
+				
+				
+			end if
+		
+		end if
+		
+		inc ($count)
+	
+	end while
+	
+	{hide}
+	
+	{
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+		
+		if (%channel_selector_visible[$count + ($INSTRUMENT_ID * 6)] = 0)
+			
+			set_control_par(%vol_slider_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		end if
+		
+		inc($count)
+	end while}
+
+{function } {}
+
+{ function gui_meters}
+	
+	declare ui_level_meter $level_meter_0_l
+	declare ui_level_meter $level_meter_1_l
+	declare ui_level_meter $level_meter_0_r
+	declare ui_level_meter $level_meter_1_r
+	
+	declare %level_meter_l_ids[$NUM_OF_CHANNELS]
+	%level_meter_l_ids[0] := get_ui_id($level_meter_0_l)
+	%level_meter_l_ids[1] := get_ui_id($level_meter_1_l)
+	
+	declare %level_meter_r_ids[$NUM_OF_CHANNELS]
+	%level_meter_r_ids[0] := get_ui_id($level_meter_0_r)
+	%level_meter_r_ids[1] := get_ui_id($level_meter_1_r)
+	
+	$count := 0
+	while($count < num_elements(%level_meter_l_ids))
+		
+		attach_level_meter(%level_meter_l_ids[$count],-1,-1,0,$count)
+		attach_level_meter(%level_meter_r_ids[$count],-1,-1,1,$count)
+			
+		{left}
+		set_control_par(%level_meter_l_ids[$count],$CONTROL_PAR_VERTICAL,1)
+		set_control_par(%level_meter_l_ids[$count],$CONTROL_PAR_WIDTH,3)
+		set_control_par(%level_meter_l_ids[$count],$CONTROL_PAR_HEIGHT,109)
+		set_control_par(%level_meter_l_ids[$count],$CONTROL_PAR_POS_X,412 + ($count * 62))
+		set_control_par(%level_meter_l_ids[$count],$CONTROL_PAR_POS_Y,244)
+		{right}
+		set_control_par(%level_meter_r_ids[$count],$CONTROL_PAR_VERTICAL,1)
+		set_control_par(%level_meter_r_ids[$count],$CONTROL_PAR_WIDTH,3)
+		set_control_par(%level_meter_r_ids[$count],$CONTROL_PAR_HEIGHT,109)
+		set_control_par(%level_meter_r_ids[$count],$CONTROL_PAR_POS_X,412 + ($count * 62) + 3)
+		set_control_par(%level_meter_r_ids[$count],$CONTROL_PAR_POS_Y,244)
+		
+		inc($count)
+	end while
+	
+	{hide meters}
+	{
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+		
+		if (%channel_selector_visible[$count + ($INSTRUMENT_ID * 6)] = 0)
+			
+			set_control_par(%level_meter_l_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+			set_control_par(%level_meter_r_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+			set_control_par(%meter_overlay_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		end if
+		
+		inc($count)
+	end while}
+	
+{function } {}
+
+{ function gui_channel_select}
+	
+	{channel selector buttons}
+	declare ui_button $channel_0_btn
+	declare ui_button $channel_1_btn
+	declare ui_button $rvb_channel_btn
+	declare ui_button $mst_channel_btn
+	make_instr_persistent($channel_0_btn)
+	make_instr_persistent($channel_1_btn)
+	make_instr_persistent($rvb_channel_btn)
+	make_instr_persistent($mst_channel_btn)
+	
+	declare %channel_btn_ids[$NUM_OF_CHANNELS + 2]
+	%channel_btn_ids[0] := get_ui_id($channel_0_btn)
+	%channel_btn_ids[1] := get_ui_id($channel_1_btn)
+	%channel_btn_ids[2] := get_ui_id($rvb_channel_btn)
+	%channel_btn_ids[3] := get_ui_id($mst_channel_btn)
+	
+	move_control_px($rvb_channel_btn,499,372)
+	move_control_px($mst_channel_btn,561,372)
+	
+	$channel_0_btn := 1
+	
+	{selector graphic is different for each instrument}
+	select ($INSTRUMENT_ID)
+		case $BANSURI_ID
+			set_control_par_str(get_ui_id($channel_0_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-7-Bansuri")
+			set_control_par_str(get_ui_id($channel_1_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-8-Bansuri")
+		case $HARMONIUM_ID
+			set_control_par_str(get_ui_id($channel_0_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-7-Harmonium")
+			set_control_par_str(get_ui_id($channel_1_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-8-Harmonium")
+		case $SANTUR_ID
+			set_control_par_str(get_ui_id($channel_0_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-7-Santur")
+			set_control_par_str(get_ui_id($channel_1_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-8-Santur")
+		case $SITAR_ID
+			set_control_par_str(get_ui_id($channel_0_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-7-Sitar")
+			set_control_par_str(get_ui_id($channel_1_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-8-Sitar")
+		case $TANPURA_ID
+			set_control_par_str(get_ui_id($channel_0_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-7-Tanpura")
+			set_control_par_str(get_ui_id($channel_1_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-8-Tanpura")
+		case $TUMBI_ID
+			set_control_par_str(get_ui_id($channel_0_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-7-Tumbi")
+			set_control_par_str(get_ui_id($channel_1_btn),$CONTROL_PAR_PICTURE,"MEL-Mixer-Channel-Btn-8-Tumbi")
+	end select
+	
+	set_control_par_str(get_ui_id($rvb_channel_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-Channel-Btn-9-Reverb")
+	set_control_par_str(get_ui_id($mst_channel_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-Channel-Btn-10-Master")
+	
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS + 2)
+		
+		if ($count < $NUM_OF_CHANNELS)
+			{channel buttons}
+			set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_WIDTH,57)
+			set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_HEIGHT,30)
+		else
+			{reverb and master}
+			set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_WIDTH,69)
+			set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_HEIGHT,30)
+		end if
+		
+		set_control_par_str(%channel_btn_ids[$count],$CONTROL_PAR_TEXT,"")
+		
+		{position}
+		if ($count < $NUM_OF_CHANNELS)
+			set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_POS_X,375 + ($count * 62))
+			set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_POS_Y,372)
+		end if
+		
+		{help}
+		
+		set_control_par_str(%channel_btn_ids[$count],$CONTROL_PAR_HELP,"Channel Display: Shows the effect controls for the channel.")
+		
+		inc($count)
+	
+	end while
+	
+	
+{function } {}
+
+{ function gui_channel_fx}
+	
+	{eq}
+	declare ui_slider $eq_0_sld (0,1000000)
+	declare ui_slider $eq_1_sld (0,1000000)
+	declare ui_slider $eq_2_sld (0,1000000)
+	declare ui_slider $eq_3_sld (0,1000000)
+	make_persistent($eq_0_sld)
+	make_persistent($eq_1_sld)
+	make_persistent($eq_2_sld)
+	make_persistent($eq_3_sld)
+	
+	set_control_par_str(get_ui_id($eq_0_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($eq_1_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($eq_2_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($eq_3_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	
+	set_control_par_str(get_ui_id($eq_0_sld),$CONTROL_PAR_HELP,"Low EQ: Sets the level of the low EQ band of the selected channel.")
+	set_control_par_str(get_ui_id($eq_1_sld),$CONTROL_PAR_HELP,"Low Mid EQ: Sets the level of the low-mid EQ band of the selected channel.")
+	set_control_par_str(get_ui_id($eq_2_sld),$CONTROL_PAR_HELP,"Mid EQ: Sets the level of the mid EQ band of the selected channel.")
+	set_control_par_str(get_ui_id($eq_3_sld),$CONTROL_PAR_HELP,"High EQ: Sets the level of the high EQ band of the selected channel.")
+	
+	move_control_px($eq_0_sld,22,417)
+	move_control_px($eq_1_sld,22+74*1,417)
+	move_control_px($eq_2_sld,22+74*2,417)
+	move_control_px($eq_3_sld,22+74*3,417)
+	
+	{channel fx 1: drive}
+	declare ui_slider $channel_fx_0_sld (0,100)
+	make_persistent($channel_fx_0_sld)
+	set_control_par_str(get_ui_id($channel_fx_0_sld),$CONTROL_PAR_PICTURE,"ENS-Knob")
+	set_control_par_str(get_ui_id($channel_fx_0_sld),$CONTROL_PAR_HELP,"Drive: Controls the saturation amount of the selected channel.")
+	move_control_px($channel_fx_0_sld,344,417)
+	
+	{channel fx 2: comp}
+	declare ui_slider $channel_fx_1_sld (0,100)
+	make_persistent($channel_fx_1_sld)
+	set_control_par_str(get_ui_id($channel_fx_1_sld),$CONTROL_PAR_PICTURE,"ENS-Knob")
+	set_control_par_str(get_ui_id($channel_fx_1_sld),$CONTROL_PAR_HELP,"Sound: Morphs through various EQ settings.")
+	move_control_px($channel_fx_1_sld,418,417)
+	
+	{output menu}
+	declare ui_menu $output_menu
+	make_instr_persistent($output_menu)
+	add_menu_item($output_menu,"Default",-1)
+	$count := 0
+	while ($count < $NUM_OUTPUT_CHANNELS)
+		add_menu_item($output_menu,output_channel_name($count),$count)
+		inc ($count)
+	end while
+	set_control_par(get_ui_id($output_menu),$CONTROL_PAR_WIDTH,83)
+	set_control_par(get_ui_id($output_menu),$CONTROL_PAR_HEIGHT,23)
+	set_control_par_str(get_ui_id($output_menu),$CONTROL_PAR_HELP,"Output Menu: Sets the output of the selected channel. When routing the channel to a different output than <Master>, the audio signal will not be affected by the master channel effects. The output assignment will not be saved with snapshots.")
+	set_control_par_str(get_ui_id($output_menu),$CONTROL_PAR_PICTURE,"cuba_menu_transparent")
+	set_control_par(get_ui_id($output_menu),$CONTROL_PAR_FONT_TYPE,$FONT_TYPE_OUTPUT_MENU)
+	set_control_par(get_ui_id($output_menu),$CONTROL_PAR_TEXTPOS_Y,3)
+	move_control_px($output_menu,521,430)
+	
+	{overlay picture}
+	declare ui_label $channel_fx_lbl (1,1)
+	set_text($channel_fx_lbl,"")
+	set_control_par_str(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE,"ENS-Mixer-Subpages")
+	set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_WIDTH,20)
+	set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_HEIGHT,20)
+	set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,1)
+	move_control_px($channel_fx_lbl,0,397)
+	
+	
+	{put into array}
+	declare %channel_fx_ids[7]
+	%channel_fx_ids[0] := get_ui_id($eq_0_sld)
+	%channel_fx_ids[1] := get_ui_id($eq_1_sld)
+	%channel_fx_ids[2] := get_ui_id($eq_2_sld)
+	%channel_fx_ids[3] := get_ui_id($eq_3_sld)
+	%channel_fx_ids[4] := get_ui_id($channel_fx_0_sld)
+	%channel_fx_ids[5] := get_ui_id($channel_fx_1_sld)
+	%channel_fx_ids[6] := get_ui_id($output_menu)
+	
+	
+	$count := 0
+	while ($count < num_elements(%channel_fx_ids))
+		
+		{eq}
+		if (in_range($count,0,3))
+			set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_VALUE,500000)
+			set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_DEFAULT_VALUE,500000)
+		end if
+		
+		{all knobs}
+		if ($count < num_elements(%channel_fx_ids) - 1)
+			set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_MOUSE_BEHAVIOUR,-425)
+			set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_ALLOW_AUTOMATION,0)
+		end if
+		
+		{hide}
+		{set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)}
+		
+		inc($count)
+	end while
+	
+	
+	
+
+{function } {}
+
+{ function gui_reverb_channel}
+
+	declare $selected_ir_sample
+	make_persistent($selected_ir_sample)
+	
+	declare ui_label $rvb_0_lbl (1,1)
+	declare ui_label $rvb_1_lbl (1,1)
+	declare ui_label $rvb_2_lbl (1,1)
+	declare ui_label $rvb_3_lbl (1,1)
+	declare ui_label $rvb_4_lbl (1,1)
+	
+	declare %rvb_lbl_ids[5]
+	%rvb_lbl_ids[0] := get_ui_id($rvb_0_lbl)
+	%rvb_lbl_ids[1] := get_ui_id($rvb_1_lbl)
+	%rvb_lbl_ids[2] := get_ui_id($rvb_2_lbl)
+	%rvb_lbl_ids[3] := get_ui_id($rvb_3_lbl)
+	%rvb_lbl_ids[4] := get_ui_id($rvb_4_lbl)
+	
+	$count := 0
+	while ($count < num_elements(%rvb_lbl_ids))
+		
+		
+		set_control_par(%rvb_lbl_ids[$count],$CONTROL_PAR_WIDTH,62)
+		set_control_par(%rvb_lbl_ids[$count],$CONTROL_PAR_HEIGHT,14)
+		
+		set_control_par_str(%rvb_lbl_ids[$count],$CONTROL_PAR_PICTURE,"ENS-Mixer-IR-Image-Labels")
+		set_control_par_str(%rvb_lbl_ids[$count],$CONTROL_PAR_TEXT,"")
+		
+		set_control_par(%rvb_lbl_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		
+		inc($count)
+	end while
+	
+	set_control_par(get_ui_id($rvb_0_lbl),$CONTROL_PAR_PICTURE_STATE,4)
+	set_control_par(get_ui_id($rvb_1_lbl),$CONTROL_PAR_PICTURE_STATE,0)
+	set_control_par(get_ui_id($rvb_2_lbl),$CONTROL_PAR_PICTURE_STATE,1)
+	set_control_par(get_ui_id($rvb_3_lbl),$CONTROL_PAR_PICTURE_STATE,2)
+	set_control_par(get_ui_id($rvb_4_lbl),$CONTROL_PAR_PICTURE_STATE,3)
+	
+	move_control_px($rvb_0_lbl,43,466)
+	move_control_px($rvb_1_lbl,164,466)
+	move_control_px($rvb_2_lbl,285,466)
+	move_control_px($rvb_3_lbl,407,466)
+	move_control_px($rvb_4_lbl,528,466)
+	
+	{only for automation}
+	declare ui_slider $rvb_sld (0,4)
+	set_control_par_str(get_ui_id($rvb_sld),$CONTROL_PAR_AUTOMATION_NAME,"IR Sample")
+	set_control_par_str(get_ui_id($rvb_sld),$CONTROL_PAR_HELP,"ir sample slider")
+	make_persistent($rvb_sld)
+	
+	if ($HIDE_AUTOMATION_SLIDERS = 1)
+		set_control_par(get_ui_id($rvb_sld),$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+	end if
+	
+	declare ui_button $rvb_0_btn
+	declare ui_button $rvb_1_btn
+	declare ui_button $rvb_2_btn
+	declare ui_button $rvb_3_btn
+	declare ui_button $rvb_4_btn
+	make_persistent($rvb_0_btn)
+	make_persistent($rvb_1_btn)
+	make_persistent($rvb_2_btn)
+	make_persistent($rvb_3_btn)
+	make_persistent($rvb_4_btn)
+	
+	set_control_par_str(get_ui_id($rvb_0_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-IR-Images-1-Room")
+	set_control_par_str(get_ui_id($rvb_1_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-IR-Images-1-Studio")
+	set_control_par_str(get_ui_id($rvb_2_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-IR-Images-2-ConcertHall")
+	set_control_par_str(get_ui_id($rvb_3_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-IR-Images-3-Church")
+	set_control_par_str(get_ui_id($rvb_4_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-IR-Images-4-TajMahal")
+	
+	move_control_px($rvb_0_btn,15,412)
+	move_control_px($rvb_1_btn,136,412)
+	move_control_px($rvb_2_btn,257,412)
+	move_control_px($rvb_3_btn,379,412)
+	move_control_px($rvb_4_btn,500,412)
+	
+	declare %rvb_btn_ids[5]
+	%rvb_btn_ids[0] := get_ui_id($rvb_0_btn)
+	%rvb_btn_ids[1] := get_ui_id($rvb_1_btn)
+	%rvb_btn_ids[2] := get_ui_id($rvb_2_btn)
+	%rvb_btn_ids[3] := get_ui_id($rvb_3_btn)
+	%rvb_btn_ids[4] := get_ui_id($rvb_4_btn)
+	
+	$count := 0
+	while ($count < num_elements(%rvb_btn_ids))
+		
+		set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_WIDTH,117)
+		set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_HEIGHT,55)
+		
+		set_control_par_str(%rvb_btn_ids[$count],$CONTROL_PAR_TEXT,"")
+		
+		set_control_par_str(%rvb_btn_ids[$count],$CONTROL_PAR_HELP,"Reverb Select: Selects the IR sample of the convolution effect.")
+		
+		set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		
+		inc($count)
+	end while
+	
+{function } {}
+
+{ function gui_master_channel}
+	
+	{master send}
+	declare ui_slider $mst_send_sld (0,1000)
+	make_persistent($mst_send_sld)
+	
+	set_control_par(get_ui_id($mst_send_sld),$CONTROL_PAR_VALUE,0)
+	set_control_par(get_ui_id($mst_send_sld),$CONTROL_PAR_DEFAULT_VALUE,723)
+	set_control_par(get_ui_id($mst_send_sld),$CONTROL_PAR_MOUSE_BEHAVIOUR,-200)
+	set_control_par_str(get_ui_id($mst_send_sld), $CONTROL_PAR_HELP, "Master Reverb Send Amount: Controls the amount of signal sent from the master bus to the reverb effect.")
+	set_control_par_str(get_ui_id($mst_send_sld),$CONTROL_PAR_PICTURE,"ENS-Mixer-Wht-Knob")
+	set_control_par_str(get_ui_id($mst_send_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Send")
+	move_control_px($mst_send_sld,587,109)
+	
+	{master width}
+	declare ui_slider $mst_width_sld (0,1000000)
+	make_persistent($mst_width_sld)
+	set_control_par(get_ui_id($mst_width_sld),$CONTROL_PAR_MOUSE_BEHAVIOUR,-200)
+	set_control_par(get_ui_id($mst_width_sld),$CONTROL_PAR_DEFAULT_VALUE,500000)
+	set_control_par_str(get_ui_id($mst_width_sld),$CONTROL_PAR_PICTURE,"ENS-Mixer-Wht-Knob")
+	set_control_par_str(get_ui_id($mst_width_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Width")
+	set_control_par_str(get_ui_id($mst_width_sld),$CONTROL_PAR_HELP,"Master Channel Width: Width: Controls the stereo width of the master bus. In middle position the stereo width is as originally recorded. Turning right increases the stereo field, turning left decreases the stereo field. When turned all the way to the left, the signal becomes mono.")
+	move_control_px($mst_width_sld,587,162)
+	
+	{invert button}
+	declare ui_switch $invert_btn
+	make_persistent($invert_btn)
+	set_control_par(get_ui_id($invert_btn),$CONTROL_PAR_WIDTH,38)
+	set_control_par(get_ui_id($invert_btn),$CONTROL_PAR_HEIGHT,20)
+	set_control_par_str(get_ui_id($invert_btn),$CONTROL_PAR_TEXT,"")
+	set_control_par_str(get_ui_id($invert_btn),$CONTROL_PAR_PICTURE,"ENS-Mixer-Master-Invert-L-R-Btn")
+	set_control_par_str(get_ui_id($invert_btn),$CONTROL_PAR_AUTOMATION_NAME,"Master Invert")
+	set_control_par_str(get_ui_id($invert_btn), $CONTROL_PAR_HELP, "Master Invert: Changes the listener position by switching the left and right channels of the master bus.")
+	move_control_px($invert_btn,576,205)
+	
+	
+
+{function } {}
+
+{ function gui_master_fx}
+	
+	{master eq}
+	declare ui_slider $mst_eq_0_sld (0,1000000)
+	declare ui_slider $mst_eq_1_sld (0,1000000)
+	declare ui_slider $mst_eq_2_sld (0,1000000)
+	declare ui_slider $mst_eq_3_sld (0,1000000)
+	make_persistent($mst_eq_0_sld)
+	make_persistent($mst_eq_1_sld)
+	make_persistent($mst_eq_2_sld)
+	make_persistent($mst_eq_3_sld)
+	set_control_par_str(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_PICTURE,"ENS-Knob-noRing")
+	set_control_par_str(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_HELP,"Master Low EQ: Sets the level of the low EQ band of the master bus.")
+	set_control_par_str(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_HELP,"Master Low Mid EQ: Sets the level of the low-mid EQ band of the master bus.")
+	set_control_par_str(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_HELP,"Master Mid EQ: Sets the level of the mid EQ band of the master bus.")
+	set_control_par_str(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_HELP,"Master High EQ: Sets the level of the high EQ band of the master bus.")
+	
+	set_control_par_str(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Low EQ")
+	set_control_par_str(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master LowMid EQ")
+	set_control_par_str(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Mid EQ")
+	set_control_par_str(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master High EQ")
+	
+	move_control_px($mst_eq_0_sld,22,417)
+	move_control_px($mst_eq_1_sld,22+74*1,417)
+	move_control_px($mst_eq_2_sld,22+74*2,417)
+	move_control_px($mst_eq_3_sld,22+74*3,417)
+	
+	{master ambient}
+	declare ui_slider $mst_ambi_sld (0,100)
+	make_persistent($mst_ambi_sld)
+	set_control_par_str(get_ui_id($mst_ambi_sld),$CONTROL_PAR_PICTURE,"ENS-Knob")
+	set_control_par_str(get_ui_id($mst_ambi_sld),$CONTROL_PAR_HELP,"Master Ambient: Adds some ambience reverb to the master bus.")
+	set_control_par_str(get_ui_id($mst_ambi_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Ambience")
+	move_control_px($mst_ambi_sld,344,417)
+	
+	{master punch}
+	declare ui_slider $mst_pnch_sld (0,100)
+	make_persistent($mst_pnch_sld)
+	set_control_par_str(get_ui_id($mst_pnch_sld),$CONTROL_PAR_PICTURE,"ENS-Knob")
+	set_control_par_str(get_ui_id($mst_pnch_sld),$CONTROL_PAR_HELP,"Master Punch: Applies various settings to the Transient Master effect to add some punch to the master bus.")
+	set_control_par_str(get_ui_id($mst_pnch_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Punch")
+	move_control_px($mst_pnch_sld,418,417)
+	
+	{master compressor}
+	declare ui_slider $mst_comp_sld (0,100)
+	make_persistent($mst_comp_sld)
+	set_control_par_str(get_ui_id($mst_comp_sld),$CONTROL_PAR_PICTURE,"ENS-Knob")
+	set_control_par_str(get_ui_id($mst_comp_sld),$CONTROL_PAR_HELP,"Master Compressor: Sets the amount of compression for the master bus.")
+	set_control_par_str(get_ui_id($mst_comp_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Comp")
+	move_control_px($mst_comp_sld,492,417)
+	
+	{master tape}
+	declare ui_slider $mst_tape_sld (0,100)
+	make_persistent($mst_tape_sld)
+	set_control_par_str(get_ui_id($mst_tape_sld),$CONTROL_PAR_PICTURE,"ENS-Knob")
+	set_control_par_str(get_ui_id($mst_tape_sld),$CONTROL_PAR_HELP,"Master Tape Saturation: Sets the amount of tape compression and distortion.")
+	set_control_par_str(get_ui_id($mst_tape_sld),$CONTROL_PAR_AUTOMATION_NAME,"Master Tape")
+	move_control_px($mst_tape_sld,566,417)
+	
+	set_control_par(get_ui_id($mst_tape_sld),$CONTROL_PAR_DEFAULT_VALUE,0)
+	
+	declare %master_fx_ids[8]
+	%master_fx_ids[0] := get_ui_id($mst_eq_0_sld)
+	%master_fx_ids[1] := get_ui_id($mst_eq_1_sld)
+	%master_fx_ids[2] := get_ui_id($mst_eq_2_sld)
+	%master_fx_ids[3] := get_ui_id($mst_eq_3_sld)
+	%master_fx_ids[4] := get_ui_id($mst_ambi_sld)
+	%master_fx_ids[5] := get_ui_id($mst_pnch_sld)
+	%master_fx_ids[6] := get_ui_id($mst_comp_sld)
+	%master_fx_ids[7] := get_ui_id($mst_tape_sld)
+	
+	$count := 0
+	while ($count < num_elements(%master_fx_ids))
+		
+		if (in_range($count,0,3))
+			set_control_par(%master_fx_ids[$count],$CONTROL_PAR_VALUE,500000)
+			set_control_par(%master_fx_ids[$count],$CONTROL_PAR_DEFAULT_VALUE,500000)
+		end if
+		
+		set_control_par(%master_fx_ids[$count],$CONTROL_PAR_MOUSE_BEHAVIOUR,-425)
+		
+		{hide page per default}
+		set_control_par(%master_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		
+		inc($count)
+	end while
+	
+	
+	
+{function } {}
+
+{ function gui_mix_preset }
+	
+	declare ui_button $export_preset_btn
+	set_text($export_preset_btn,"Export Mix Preset")
+	move_control($export_preset_btn,1,4)
+	
+	if ($SHOW_EXPORT_BUTTON = 1)
+		set_control_par(get_ui_id($export_preset_btn),$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+	else
+		set_control_par(get_ui_id($export_preset_btn),$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+	end if
+	
+	declare ui_menu $mix_preset_menu
+	set_control_help($mix_preset_menu,"Sound Preset Menu: Loads a sound preset. A sound preset contains all settings of the mixer page.")
+	set_control_par(get_ui_id($mix_preset_menu),$CONTROL_PAR_TEXTPOS_Y,3)
+	set_control_par(get_ui_id($mix_preset_menu),$CONTROL_PAR_HEIGHT,20)
+	set_control_par(get_ui_id($mix_preset_menu),$CONTROL_PAR_WIDTH,122)
+	set_control_par_str(get_ui_id($mix_preset_menu),$CONTROL_PAR_PICTURE,"cuba_soundmenu_transparent")
+	set_control_par(get_ui_id($mix_preset_menu),$CONTROL_PAR_FONT_TYPE,$FONT_TYPE_SOUND_MENU)
+	make_persistent($mix_preset_menu)
+	move_control_px($mix_preset_menu,497,32)
+	
+	{add factory preset names}
+	$count := 0
+	while($count < $NUM_OF_FACTORY_MIXPRESETS)
+		add_menu_item($mix_preset_menu,!factory_mix_preset_names[$count],$count)
+		inc($count)
+	end while
+	
+	{arrow label}
+	
+	declare ui_button $mix_preset_prev_btn
+	set_control_par_str(get_ui_id($mix_preset_prev_btn),$CONTROL_PAR_PICTURE,"ENS-Sound-Preset-Prev-Btn")
+	set_control_help($mix_preset_prev_btn,"Previous Sound Preset: Loads the previous sound preset in the menu.")
+	move_control_px($mix_preset_prev_btn,462,33)
+	
+	declare ui_button $mix_preset_next_btn
+	set_control_par_str(get_ui_id($mix_preset_next_btn),$CONTROL_PAR_PICTURE,"ENS-Sound-Preset-Next-Btn")
+	set_control_help($mix_preset_next_btn,"Next Sound Preset: Loads the next sound preset in the menu.")
+	move_control_px($mix_preset_next_btn,479,33)
+	
+	declare ui_label $mix_preset_arrow_lbl (1,1)
+	set_text($mix_preset_arrow_lbl,"")
+	set_control_par_str(get_ui_id($mix_preset_arrow_lbl),$CONTROL_PAR_PICTURE,"ENS-Sound-Preset-Dropdown-Btn")
+	set_control_par(get_ui_id($mix_preset_arrow_lbl),$CONTROL_PAR_WIDTH,16)
+	set_control_par(get_ui_id($mix_preset_arrow_lbl),$CONTROL_PAR_HEIGHT,15)
+	move_control_px($mix_preset_arrow_lbl,599,34)
+	
+	declare %mix_preset_control_ids[3]
+	%mix_preset_control_ids[0] := get_ui_id($mix_preset_menu)
+	%mix_preset_control_ids[1] := get_ui_id($mix_preset_prev_btn)
+	%mix_preset_control_ids[2] := get_ui_id($mix_preset_next_btn)
+	
+	$count := 1
+	while ($count < 3)
+		set_control_par(%mix_preset_control_ids[$count],$CONTROL_PAR_HEIGHT,17)
+		set_control_par(%mix_preset_control_ids[$count],$CONTROL_PAR_WIDTH,18)
+		set_control_par_str(%mix_preset_control_ids[$count],$CONTROL_PAR_TEXT,"")
+	
+		inc($count)
+	end while
+	
+	{DATA}
+	
+	declare %single_mixer_preset[$NUM_PAR_PER_MIXPRESET]
+	
+	declare $single_preset_id
+	$single_preset_id := -1
+	
+	{VARIABLES}
+	
+	declare %mix_preset_async_check[3]
+	
+	declare $mix_preset_change_flag {1 if the current preset has been changed}
+	make_persistent($mix_preset_change_flag)
+	
+	declare $mix_preset_delete_flag
+	make_persistent($mix_preset_delete_flag)
+	
+	declare $mix_preset_flag
+	make_persistent($mix_preset_flag)
+	
+	declare $mix_preset_helper
+	
+	declare $mix_preset_load_safety := 1
+	declare $mix_preset_save_safety := 1
+	declare $mix_preset_delete_safety := 1
+	
+	
+	
+{function } {}
+
+{ function performance_slider }
+	
+	{mod wheel slider}
+	declare ui_slider $perf_0_sld (0,127)
+	make_persistent($perf_0_sld)
+		
+	set_control_par_str(get_ui_id($perf_0_sld),$CONTROL_PAR_HELP,"Ornament Time: Changes the speed of the triggered ornaments. Can also be controlled with the Mod Wheel (CC1).")
+	
+	set_control_par(get_ui_id($perf_0_sld),$CONTROL_PAR_VALUE,0)
+	set_control_par(get_ui_id($perf_0_sld),$CONTROL_PAR_DEFAULT_VALUE,64)
+	set_control_par(get_ui_id($perf_0_sld),$CONTROL_PAR_MOUSE_BEHAVIOUR,1000)
+	
+	set_control_par_str(get_ui_id($perf_0_sld),$CONTROL_PAR_PICTURE,"MEL-ModWheel-Slider")
+	set_control_par(get_ui_id($perf_0_sld),$CONTROL_PAR_ALLOW_AUTOMATION,0)
+	
+	move_control_px($perf_0_sld,18,34)
+	
+
+{function } {}
+
+{ function variables }
+	
+	{eq morph}
+	declare %eq_morph_data[11*9] := (...
+	500000,500000,500000,	500000,500000,500000,	1000000,500000,500000,...
+	159040,1000000,528320,	620113,62500,500000,	967773,1000000,277344,...
+	132647,737305,247070,	679687,356445,555664,	982422,863281,219727,...
+	73242,639648,0,			551758,369141,621094,	926758,358398,580078,...
+	223633,310547,555664,	212891,62500,358398,	472656,0,392578,...
+	870117,586914,608398,	899414,21484,319336,	583008,85937,608398,...
+	626953,775391,783203,	566406,360352,199219,	670898,0,278320,...
+	497070,0,171875,		555664,0,672852,		796875,144531,571289,...
+	57617,660156,85938,		665039,6836,692383,		441406,0,740234,...
+	126953,503321,541016,	582031,250000,381347,	923730,617481,596680,...
+	137695,357422,417969,	336914,250000,614258,	870117,417969,420898)
+	
+	declare %eq_morph_engine_par[9] := (...
+	$ENGINE_PAR_FREQ1,$ENGINE_PAR_BW1,$ENGINE_PAR_GAIN1,...
+	$ENGINE_PAR_FREQ2,$ENGINE_PAR_BW2,$ENGINE_PAR_GAIN2,...
+	$ENGINE_PAR_FREQ3,$ENGINE_PAR_BW3,$ENGINE_PAR_GAIN3)
+	
+	declare $eq_morph_value
+	
+	declare $eq_morph_index_1
+	declare $eq_morph_index_2
+	
+	declare $channel_touched
+	declare $slider_value
+	declare $value
+	
+	declare $array_pointer
+	
+	{solo and mute}
+	declare %solo_state[$NUM_OF_CHANNELS]
+	declare %mute_state[$NUM_OF_CHANNELS]
+	make_persistent(%solo_state)
+	make_persistent(%mute_state)
+	declare $solo_active
+	
+	{selected channel}
+	declare $selected_channel
+	make_instr_persistent($selected_channel)
+	
+	{output channel}
+	declare %channel_output[$NUM_OF_CHANNELS]
+	make_instr_persistent(%channel_output)
+	
+	$count := 0
+	while($count < $NUM_OF_CHANNELS)
+		%channel_output[$count] := -1 {i.e. all routed to Master}
+		inc($count)
+	end while
+	
+	read_persistent_var(%channel_output)
+	$count := 0
+	while($count < $NUM_OF_CHANNELS)
+		if(%channel_output[$count] >= $NUM_OUTPUT_CHANNELS)
+			%channel_output[$count] := -1
+			set_engine_par($ENGINE_PAR_OUTPUT_CHANNEL,-1,-1,-1,$NI_BUS_OFFSET+$count)
+		end if
+		inc($count)
+	end while
+	
+	$output_menu := %channel_output[$selected_channel]
+	
+	{CAUTION}
+	
+	{channel fx data}
+
+	declare %channel_fx_0_data[$NUM_OF_CHANNELS]
+	declare %channel_fx_1_data[$NUM_OF_CHANNELS]
+	make_persistent(%channel_fx_0_data)
+	make_persistent(%channel_fx_1_data)
+	
+	{eq}
+	declare %channel_eq_0[$NUM_OF_CHANNELS] := (500000)
+	declare %channel_eq_1[$NUM_OF_CHANNELS] := (500000)
+	declare %channel_eq_2[$NUM_OF_CHANNELS] := (500000)
+	declare %channel_eq_3[$NUM_OF_CHANNELS] := (500000)
+	make_persistent(%channel_eq_0)
+	make_persistent(%channel_eq_1)
+	make_persistent(%channel_eq_2)
+	make_persistent(%channel_eq_3)
+	
+
+{function } {}
+
+{ function event_processing }
+
+	declare const $SEQ_SCRIPT_SLOT := 1
+	
+	declare polyphonic $played_id
+	declare polyphonic $played_note
+	declare polyphonic $played_vol
+	declare polyphonic $played_wait
+	declare polyphonic $played_group
+	declare polyphonic $played_duration
+	
+	declare $run_flag_sequencer
+	
+	{
+	receiving:
+	
+	$EVENT_PAR_0 : wait time
+	$EVENT_PAR_1 : group index
+	$EVENT_PAR_2 : 1 if sequencer note, 2 if played notes
+	$EVENT_PAR_3: duration
+	}
+	
+{function } {}
+
+{ function automation }
+
+	if ($CREATE_AUTOMATION_ID = 1)
+		
+		
+		set_control_par(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_AUTOMATION_ID,8)
+		set_control_par(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_AUTOMATION_ID,9)
+		set_control_par(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_AUTOMATION_ID,10)
+		set_control_par(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_AUTOMATION_ID,11)
+		set_control_par(get_ui_id($mst_ambi_sld),$CONTROL_PAR_AUTOMATION_ID,12)
+		set_control_par(get_ui_id($mst_pnch_sld),$CONTROL_PAR_AUTOMATION_ID,13)
+		set_control_par(get_ui_id($mst_comp_sld),$CONTROL_PAR_AUTOMATION_ID,14)
+		set_control_par(get_ui_id($mst_tape_sld),$CONTROL_PAR_AUTOMATION_ID,15)
+		
+		set_control_par(get_ui_id($send_0_sld),$CONTROL_PAR_AUTOMATION_ID,16)
+		set_control_par(get_ui_id($pan_0_sld),$CONTROL_PAR_AUTOMATION_ID,17)
+		set_control_par(get_ui_id($solo_0_btn),$CONTROL_PAR_AUTOMATION_ID,18)
+		set_control_par(get_ui_id($mute_0_btn),$CONTROL_PAR_AUTOMATION_ID,19)
+		set_control_par(get_ui_id($vol_0_sld),$CONTROL_PAR_AUTOMATION_ID,20)
+		
+		set_control_par(get_ui_id($send_1_sld),$CONTROL_PAR_AUTOMATION_ID,21)
+		set_control_par(get_ui_id($pan_1_sld),$CONTROL_PAR_AUTOMATION_ID,22)
+		set_control_par(get_ui_id($solo_1_btn),$CONTROL_PAR_AUTOMATION_ID,23)
+		set_control_par(get_ui_id($mute_1_btn),$CONTROL_PAR_AUTOMATION_ID,24)
+		set_control_par(get_ui_id($vol_1_sld),$CONTROL_PAR_AUTOMATION_ID,25)
+		
+		set_control_par(get_ui_id($solo_rvb_btn),$CONTROL_PAR_AUTOMATION_ID,26)
+		set_control_par(get_ui_id($mute_rvb_btn),$CONTROL_PAR_AUTOMATION_ID,27)
+		set_control_par(get_ui_id($rvb_vol_sld),$CONTROL_PAR_AUTOMATION_ID,28)
+		set_control_par(get_ui_id($rvb_sld),$CONTROL_PAR_AUTOMATION_ID,29)
+		
+		set_control_par(get_ui_id($mst_send_sld),$CONTROL_PAR_AUTOMATION_ID,30)
+		set_control_par(get_ui_id($mst_width_sld),$CONTROL_PAR_AUTOMATION_ID,31)
+		set_control_par(get_ui_id($invert_btn),$CONTROL_PAR_AUTOMATION_ID,32)
+		set_control_par(get_ui_id($mst_vol_sld),$CONTROL_PAR_AUTOMATION_ID,33)
+					
+	end if
+				
+{function } {}
+
+	$init_flag := 0
+
+end on
+
+function solo_mute_channel
+	
+	if (search(%solo_state,1) = -1)
+		$solo_active := 0
+	else
+		$solo_active := 1
+	end if
+	
+	{reverb solo}
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+
+		set_engine_par($ENGINE_PAR_VOLUME,(($solo_rvb_btn + 1) mod 2) * 631000,-1,-1,$NI_BUS_OFFSET + $count)
+		
+		inc($count)
+		
+	end while
+	
+	if ($solo_active = 1)
+		$count := 0
+		while ($count < $NUM_OF_CHANNELS)
+		
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,((%mute_state[$count]+1) mod 2) * %solo_state[$count] * 397000,...
+			-1,$SPREAD_2_SLOT,$NI_BUS_OFFSET + $count)
+			
+			inc($count)
+			
+		end while
+		
+		
+		
+	else
+		
+		$count := 0
+		while ($count < $NUM_OF_CHANNELS)
+		
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,((%mute_state[$count] + 1) mod 2) * 397000,...
+			-1,$SPREAD_2_SLOT,$NI_BUS_OFFSET + $count)
+			
+			inc($count)
+			
+		end while
+		
+		{mute for reverb channel}
+		set_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,$mute_rvb_btn,-1,$REVERB_SLOT,0)
+	
+	end if
+	
+end function {}
+
+function change_vol_slider
+	
+	{variables passed: $channel_touched, $slider_value}
+	
+	if ($channel_touched < $NUM_OF_CHANNELS)
+	
+		{channel}
+		if ($slider_value = 89)
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,397000,-1,$SPREAD_1_SLOT,$NI_BUS_OFFSET + $channel_touched)
+		else
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,(%wurzel_zweidrittel[$slider_value]*$cur_volume)/1000,-1,$SPREAD_1_SLOT,$NI_BUS_OFFSET + $channel_touched)
+		end if
+		
+		set_control_par_str(%vol_slider_ids[$channel_touched],$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,...
+		-1,$SPREAD_1_SLOT,$NI_BUS_OFFSET+$channel_touched) & " dB")
+		
+		
+	else
+		
+		{master}
+		if ($slider_value = 89)
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,397000,-1,$SPREAD_1_SLOT,1)
+		else
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,(%wurzel_zweidrittel[$slider_value]*$cur_volume)/1000,-1,$SPREAD_1_SLOT,1)
+		end if
+		
+		set_control_par_str(get_ui_id($mst_vol_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,-1,$SPREAD_1_SLOT,1) & " dB")
+	
+	end if
+
+end function {}
+
+function change_pan_slider
+	
+	set_engine_par($ENGINE_PAR_PAN,$slider_value,-1,-1,$NI_BUS_OFFSET+$channel_touched)
+	set_control_par_str(%pan_slider_ids[$channel_touched],$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_PAN,-1,-1,$NI_BUS_OFFSET + $channel_touched))
+
+end function {}
+
+function change_send_slider
+	
+	{variables passed: $channel_touched, $slider_value}
+	
+	if ($slider_value <= 500)
+		$value := (($slider_value - 0) * (500000 - 0) / (500 - 0)) + 0
+	else
+		$value := (($slider_value - 500) * (793000 - 500000) / (1000 - 500)) + 500000
+	end if
+	
+	if ($channel_touched < $NUM_OF_CHANNELS)
+		
+		{channel}
+		set_engine_par($ENGINE_PAR_SENDLEVEL_0,$value,-1,$SEND_SLOT,$NI_BUS_OFFSET+$channel_touched)
+		set_control_par_str(%send_slider_ids[$channel_touched],$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SENDLEVEL_0,-1,$SEND_SLOT,$NI_BUS_OFFSET + $channel_touched) & " dB")
+	
+	else
+		
+		{master}
+		set_engine_par($ENGINE_PAR_SENDLEVEL_0,$value,-1,$SEND_SLOT,1)
+		set_control_par_str(get_ui_id($mst_send_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SENDLEVEL_0,-1,$SEND_SLOT,1) & " dB")
+	
+	end if
+	
+end function {}
+
+
+function change_channel
+	
+	{variables passed: $selected_channel}
+	
+	{radio button functionality}
+	$count := 0
+	while ($count < num_elements(%channel_btn_ids))
+		set_control_par(%channel_btn_ids[$count],$CONTROL_PAR_VALUE,0)
+		inc($count)
+	end while
+	set_control_par(%channel_btn_ids[$selected_channel],$CONTROL_PAR_VALUE,1)
+	
+	{hide everything}
+	$count := 0
+	while ($count < num_elements(%channel_fx_ids))
+		set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		inc($count)
+	end while
+	
+	$count := 0
+	while ($count < num_elements(%rvb_btn_ids))
+		set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		set_control_par(%rvb_lbl_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		inc($count)
+	end while
+	
+	$count := 0
+	while ($count < num_elements(%master_fx_ids))
+		set_control_par(%master_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_WHOLE_CONTROL)
+		inc($count)
+	end while
+	
+	
+	
+	if ($selected_channel < $NUM_OF_CHANNELS)
+		
+		{channel}
+		$count := 0
+		while ($count < num_elements(%channel_fx_ids))
+			set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+			inc($count)
+		end while
+		
+		$output_menu := %channel_output[$selected_channel]
+		$channel_fx_0_sld := %channel_fx_0_data[$selected_channel]
+		$channel_fx_1_sld := %channel_fx_1_data[$selected_channel]
+		$eq_0_sld := %channel_eq_0[$selected_channel]
+		$eq_1_sld := %channel_eq_1[$selected_channel]
+		$eq_2_sld := %channel_eq_2[$selected_channel]
+		$eq_3_sld := %channel_eq_3[$selected_channel]
+		
+		set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,0)
+		
+	else
+		
+		if ($selected_channel = $NUM_OF_CHANNELS)
+			
+			{reverb}
+			$count := 0
+			while ($count < num_elements(%rvb_btn_ids))
+				set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+				set_control_par(%rvb_lbl_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+				inc($count)
+			end while
+			
+			set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,1)
+			
+		else
+		
+			{master}
+			$count := 0
+			while ($count < num_elements(%master_fx_ids))
+				set_control_par(%master_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+				inc($count)
+			end while
+			
+			set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,2)
+			
+		end if
+		
+		
+		
+	end if
+	
+end function {}
+
+function change_ir_sample
+	
+	{variables passed: $selected_ir_sample}
+	
+	$rvb_sld := $selected_ir_sample
+	
+	{radio button functionality}
+	$count := 0
+	while ($count < num_elements(%rvb_btn_ids))
+		set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_VALUE,0)
+		inc($count)
+	end while
+	set_control_par(%rvb_btn_ids[$selected_ir_sample],$CONTROL_PAR_VALUE,1)
+	
+	load_ir_sample(!ir_sample_names[$selected_ir_sample] & ".wav",$REVERB_SLOT,0)
+	
+	set_control_par_str(get_ui_id($rvb_sld),$CONTROL_PAR_LABEL,!ir_sample_names[$rvb_sld])
+	
+end function {}
+
+function load_mixer_preset
+
+
+	$count_3 := 0
+	while ($count_3 < $NUM_OF_CHANNELS + 2)
+	
+		$channel_touched := $count_3
+				
+		if ($count_3 < $NUM_OF_CHANNELS) {if channel}
+		
+			{volume}
+			$slider_value := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 0]
+			set_control_par(%vol_slider_ids[$count_3],$CONTROL_PAR_VALUE,$slider_value)
+			call change_vol_slider
+			
+			{pan}
+			$slider_value := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 1]
+			set_control_par(%pan_slider_ids[$count_3],$CONTROL_PAR_VALUE,$slider_value)
+			call change_pan_slider
+			
+			{solo}
+			{%solo_state[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 2]
+			set_control_par(%solo_btn_ids[$count_3],$CONTROL_PAR_VALUE,%solo_state[$count_3])}
+			
+			{mute}
+			{%mute_state[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 3]
+			set_control_par(%mute_btn_ids[$count_3],$CONTROL_PAR_VALUE,%mute_state[$count_3])
+			call solo_mute_channel}
+			
+			{send}
+			$slider_value := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 4]
+			set_control_par(%send_slider_ids[$count_3],$CONTROL_PAR_VALUE,$slider_value)
+			call change_send_slider
+			
+			{eq}
+			%channel_eq_0[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 5]
+			%channel_eq_1[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 6]
+			%channel_eq_2[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 7]
+			%channel_eq_3[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 8]
+			set_engine_par($ENGINE_PAR_SEQ_LF_GAIN, %channel_eq_0[$count_3],-1,$EQ_SLOT,$NI_BUS_OFFSET + $count_3)
+			set_engine_par($ENGINE_PAR_SEQ_LMF_GAIN,%channel_eq_1[$count_3],-1,$EQ_SLOT,$NI_BUS_OFFSET + $count_3)
+			set_engine_par($ENGINE_PAR_SEQ_HMF_GAIN,%channel_eq_2[$count_3],-1,$EQ_SLOT,$NI_BUS_OFFSET + $count_3)
+			set_engine_par($ENGINE_PAR_SEQ_HF_GAIN, %channel_eq_3[$count_3],-1,$EQ_SLOT,$NI_BUS_OFFSET + $count_3)
+			
+			{DRIVE}
+			%channel_fx_0_data[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 9]
+
+			{amount}
+			if (%channel_fx_0_data[$count_3] < 50)
+				$value := ((%channel_fx_0_data[$count_3]) * ( $DRIVE_AMOUNT_50 -  $DRIVE_AMOUNT_0) / (49)) +  $DRIVE_AMOUNT_0
+			else
+				$value := ((%channel_fx_0_data[$count_3] - 50) * ($DRIVE_AMOUNT_100 - $DRIVE_AMOUNT_50) / (100 - 50)) + $DRIVE_AMOUNT_50
+			end if
+			
+			set_engine_par($ENGINE_PAR_SHAPE,$value,-1,$DRIVE_SLOT,$NI_BUS_OFFSET + $count_3)
+			
+			{output}
+			if (%channel_fx_0_data[$count_3] < 50)
+				$value := ((%channel_fx_0_data[$count_3]) * ( $DRIVE_OUTPUT_50 -  $DRIVE_OUTPUT_0) / (49)) +  $DRIVE_OUTPUT_0
+			else
+				$value := ((%channel_fx_0_data[$count_3] - 50) * ($DRIVE_OUTPUT_100 - $DRIVE_OUTPUT_50) / (100 - 50)) + $DRIVE_OUTPUT_50
+			end if
+			
+			set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,$value,-1,$DRIVE_SLOT,$NI_BUS_OFFSET + $count_3)
+			
+			{sound}
+			%channel_fx_1_data[$count_3] := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 10]
+			$eq_morph_index_1 := %channel_fx_1_data[$count_3]/10
+			$eq_morph_index_2 := %channel_fx_1_data[$count_3]/10 +1
+			
+			if ($eq_morph_index_2 > 10)
+				$eq_morph_index_2 := 10
+			end if
+			
+			$count := 0
+			while($count < 9)
+				$eq_morph_value := ((%eq_morph_data[($eq_morph_index_2*9) + $count] - %eq_morph_data[($eq_morph_index_1*9) + $count]) * ((%channel_fx_1_data[$count_3]*10) mod 100))/100 + %eq_morph_data[($eq_morph_index_1*9) + $count]
+				set_engine_par(%eq_morph_engine_par[$count],$eq_morph_value,-1,$EQ_MORPH_SLOT_IDX,$NI_BUS_OFFSET + $count_3)
+				inc($count)
+			end while
+			
+			
+		else 
+			
+			if ($count_3 = $NUM_OF_CHANNELS) {reverb}
+			
+				{reverb volume aka return}
+				$rvb_vol_sld :=  %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 0]
+				
+				if ($rvb_vol_sld = 89)
+					$value := 397000
+				else
+					$value := (%wurzel_zweidrittel[$rvb_vol_sld]*$cur_volume_verb)/1000
+				end if
+				
+				set_engine_par($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,$value,-1,$REVERB_SLOT,0)
+				set_control_par_str(get_ui_id($rvb_vol_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,-1,$REVERB_SLOT,0) & " dB")
+				
+				{ir sample}
+				$selected_ir_sample := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 1]
+				call change_ir_sample
+				
+				{solo}
+				{$solo_rvb_btn := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 2]}
+				
+				{mute}
+				{$mute_rvb_btn := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 3]
+				
+				call solo_mute_channel}
+				
+			else {master}
+				
+				
+				{volume}
+				$slider_value := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 0]
+				set_control_par(get_ui_id($mst_vol_sld),$CONTROL_PAR_VALUE,$slider_value)
+				call change_vol_slider
+				
+				{invert button}
+				$invert_btn := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 1]
+				set_engine_par($ENGINE_PAR_EFFECT_BYPASS,($invert_btn + 1) mod 2,-1,$INVERT_SLOT,1)
+				
+				{send}
+				$slider_value := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 2]
+				set_control_par(get_ui_id($mst_send_sld),$CONTROL_PAR_VALUE,$slider_value)
+				call change_send_slider
+				
+				{width}
+				$mst_width_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 3]
+				set_engine_par($ENGINE_PAR_STEREO,$mst_width_sld,-1,$SPREAD_1_SLOT,1)
+				set_control_par_str(get_ui_id($mst_width_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_STEREO,-1,$SPREAD_1_SLOT,1))
+				
+				{eq}
+				$mst_eq_0_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 4]
+				$mst_eq_1_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 5]
+				$mst_eq_2_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 6]
+				$mst_eq_3_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 7]
+				set_engine_par($ENGINE_PAR_SEQ_LF_GAIN,$mst_eq_0_sld,-1,$MST_EQ_SLOT,1)
+				set_engine_par($ENGINE_PAR_SEQ_LMF_GAIN,$mst_eq_1_sld,-1,$MST_EQ_SLOT,1)
+				set_engine_par($ENGINE_PAR_SEQ_HMF_GAIN,$mst_eq_2_sld,-1,$MST_EQ_SLOT,1)
+				set_engine_par($ENGINE_PAR_SEQ_HF_GAIN,$mst_eq_3_sld,-1,$MST_EQ_SLOT,1)
+				set_control_par_str(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_LF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+				set_control_par_str(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_LMF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+				set_control_par_str(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_HMF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+				set_control_par_str(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_HF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+				
+				{AMBI}
+				$mst_ambi_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 8]
+				
+				{bypass}
+				if ($mst_ambi_sld = 0)
+					if (get_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,-1,$MST_AMBI_SLOT,1) = 0)
+						set_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,1,-1,$MST_AMBI_SLOT,1)
+					end if
+				else
+					if (get_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,-1,$MST_AMBI_SLOT,1) = 1)
+						set_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,0,-1,$MST_AMBI_SLOT,1)
+					end if
+				end if
+				
+				if ($mst_ambi_sld < 50)
+					$value := ($mst_ambi_sld * ($AMBI_LEVEL_50) / 49)
+				else
+					$value := (($mst_ambi_sld - 50) * ($AMBI_LEVEL_100 - $AMBI_LEVEL_50) / (100 - 50)) + $AMBI_LEVEL_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,$value,-1,$MST_AMBI_SLOT,1)
+				set_control_par_str(get_ui_id($mst_ambi_sld),$CONTROL_PAR_LABEL,$mst_ambi_sld & " %")
+				
+				
+				{PUNCH}
+				$mst_pnch_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 9]
+				
+				{bypass}
+				if ($mst_pnch_sld = 0)
+					if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_PNCH_SLOT,1) = 0)
+						set_engine_par($ENGINE_PAR_EFFECT_BYPASS,1,-1,$MST_PNCH_SLOT,1)
+					end if
+				else
+					if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_PNCH_SLOT,1) = 1)
+						set_engine_par($ENGINE_PAR_EFFECT_BYPASS,0,-1,$MST_PNCH_SLOT,1)
+					end if
+				end if
+				
+				{attack}
+				if ($mst_pnch_sld < 50)
+					$value := (($mst_pnch_sld) * ( $PUNCH_ATTACK_50 -  $PUNCH_ATTACK_0) / (49)) +  $PUNCH_ATTACK_0
+				else
+					$value := (($mst_pnch_sld - 50) * ($PUNCH_ATTACK_100 - $PUNCH_ATTACK_50) / (100 - 50)) + $PUNCH_ATTACK_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_TR_ATTACK,$value,-1,$MST_PNCH_SLOT,1)
+				
+				{sustain}
+				if ($mst_pnch_sld < 50)
+					$value := (($mst_pnch_sld) * ( $PUNCH_SUSTAIN_50 -  $PUNCH_SUSTAIN_0) / (49)) +  $PUNCH_SUSTAIN_0
+				else
+					$value := (($mst_pnch_sld - 50) * ($PUNCH_SUSTAIN_100 - $PUNCH_SUSTAIN_50) / (100 - 50)) + $PUNCH_SUSTAIN_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_TR_SUSTAIN,$value,-1,$MST_PNCH_SLOT,1)
+				
+				{output}
+				if ($mst_pnch_sld < 50)
+					$value := (($mst_pnch_sld) * ( $PUNCH_OUTPUT_50 -  $PUNCH_OUTPUT_0) / (49)) +  $PUNCH_OUTPUT_0
+				else
+					$value := (($mst_pnch_sld - 50) * ($PUNCH_OUTPUT_100 - $PUNCH_OUTPUT_50) / (100 - 50)) + $PUNCH_OUTPUT_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,$value,-1,$MST_PNCH_SLOT,1)
+							
+				{COMP}
+				$mst_comp_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 10]
+				
+				{bypass}
+				if ($mst_comp_sld = 0)
+					if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_COMP_SLOT,1) = 0)
+						set_engine_par($ENGINE_PAR_EFFECT_BYPASS,1,-1,$MST_COMP_SLOT,1)
+					end if
+				else
+					if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_COMP_SLOT,1) = 1)
+						set_engine_par($ENGINE_PAR_EFFECT_BYPASS,0,-1,$MST_COMP_SLOT,1)
+					end if
+				end if
+				
+				if ($mst_comp_sld < 50)
+					set_engine_par($ENGINE_PAR_SCOMP_THRESHOLD,($mst_comp_sld * ($SCOMP_THRESHOLD_50 - $SCOMP_THRESHOLD_0) / 50) + $SCOMP_THRESHOLD_0, -1,$MST_COMP_SLOT,1)
+					set_engine_par($ENGINE_PAR_SCOMP_MAKEUP,($mst_comp_sld * ($SCOMP_MAKEUP_50 - $SCOMP_MAKEUP_0) / 50) + $SCOMP_MAKEUP_0,-1,$MST_COMP_SLOT,1)
+				else
+					set_engine_par($ENGINE_PAR_SCOMP_THRESHOLD,(($mst_comp_sld - 50) * ($SCOMP_THRESHOLD_100 - $SCOMP_THRESHOLD_50) / 50) + $SCOMP_THRESHOLD_50, -1,$MST_COMP_SLOT,1)
+					set_engine_par($ENGINE_PAR_SCOMP_MAKEUP,(($mst_comp_sld - 50) * ($SCOMP_MAKEUP_100 - $SCOMP_MAKEUP_50) / 50) + $SCOMP_MAKEUP_50,-1,$MST_COMP_SLOT,1)
+				end if
+				set_control_par_str(get_ui_id($mst_comp_sld),$CONTROL_PAR_LABEL,$mst_comp_sld & " %")
+				
+				{TAPE}
+				$mst_tape_sld := %single_mixer_preset[($count_3 * $NUM_PAR_PER_CHANNEL) + 11]
+				
+				{gain}
+				if ($mst_tape_sld < 50)
+					$value := (($mst_tape_sld) * ( $TAPE_GAIN_50 -  $TAPE_GAIN_0) / (49)) +  $TAPE_GAIN_0
+				else
+					$value := (($mst_tape_sld - 50) * ($TAPE_GAIN_100 - $TAPE_GAIN_50) / (100 - 50)) + $TAPE_GAIN_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_TP_GAIN,$value,-1,$MST_TAPE_SLOT,1)
+				
+				{warmth}
+				if ($mst_tape_sld < 50)
+					$value := (($mst_tape_sld) * ( $TAPE_WARMTH_50 -  $TAPE_WARMTH_0) / (49)) +  $TAPE_WARMTH_0
+				else
+					$value := (($mst_tape_sld - 50) * ($TAPE_WARMTH_100 - $TAPE_WARMTH_50) / (100 - 50)) + $TAPE_WARMTH_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_TP_WARMTH,$value,-1,$MST_TAPE_SLOT,1)
+				
+				{output}
+				if ($mst_tape_sld < 50)
+					$value := (($mst_tape_sld) * ( $TAPE_OUTPUT_50 -  $TAPE_OUTPUT_0) / (49)) +  $TAPE_OUTPUT_0
+				else
+					$value := (($mst_tape_sld - 50) * ($TAPE_OUTPUT_100 - $TAPE_OUTPUT_50) / (100 - 50)) + $TAPE_OUTPUT_50
+				end if
+				
+				set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,$value,-1,$MST_TAPE_SLOT,1)
+				
+				{parameter readout}
+				set_control_par_str(get_ui_id($mst_tape_sld),$CONTROL_PAR_LABEL,$mst_tape_sld & " %")
+				
+			end if
+			
+		end if
+		
+		inc($count_3)
+		
+	end while
+	
+	
+	{update channel fx}
+	if ($selected_channel < $NUM_OF_CHANNELS)
+		$eq_0_sld := %channel_eq_0[$selected_channel]
+		$eq_1_sld := %channel_eq_1[$selected_channel]
+		$eq_2_sld := %channel_eq_2[$selected_channel]
+		$eq_3_sld := %channel_eq_3[$selected_channel]
+		$channel_fx_0_sld := %channel_fx_0_data[$selected_channel]
+		$channel_fx_1_sld := %channel_fx_1_data[$selected_channel]
+	end if
+	
+end function {}
+
+function export_mixer_preset
+	
+	
+	{copy the content of one preset into the array file}
+	$count_4 := 0
+	while ($count_4 < $NUM_OF_CHANNELS + 2)
+	
+	$channel_touched := $count_4
+	
+		
+	if ($count_4 < $NUM_OF_CHANNELS) {if channel}
+		
+		{volume}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 0] := get_control_par(%vol_slider_ids[$count_4],$CONTROL_PAR_VALUE)
+		
+		{pan}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 1] := get_control_par(%pan_slider_ids[$count_4],$CONTROL_PAR_VALUE)
+		
+		{solo}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 2] := get_control_par(%solo_btn_ids[$count_4],$CONTROL_PAR_VALUE)
+		
+		{mute}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 3] := get_control_par(%mute_btn_ids[$count_4],$CONTROL_PAR_VALUE)
+		
+		{send}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 4] := get_control_par(%send_slider_ids[$count_4],$CONTROL_PAR_VALUE)
+		
+		{eq}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 5] := %channel_eq_0[$count_4]
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 6] := %channel_eq_1[$count_4]
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 7] := %channel_eq_2[$count_4]
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 8] := %channel_eq_3[$count_4]
+		
+		{drive}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 9] := %channel_fx_0_data[$count_4]
+		
+		{sound}
+		%single_mixer_preset[($count_4 * $NUM_PAR_PER_CHANNEL) + 10] := %channel_fx_1_data[$count_4]
+		
+	else
+			
+		if ($count_4 = $NUM_OF_CHANNELS) {reverb}
+			
+			{reverb return}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 0] := $rvb_vol_sld
+			
+			{ir sample}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 1] := $selected_ir_sample
+			
+			{solo}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 2] := $solo_rvb_btn
+		
+			{mute}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 3] := $mute_rvb_btn
+			
+		else {master}
+			
+			{volume}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 0] := get_control_par(get_ui_id($mst_vol_sld),$CONTROL_PAR_VALUE)
+			
+			{invert button}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 1] := $invert_btn
+			
+			{send}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 2] := get_control_par(get_ui_id($mst_send_sld),$CONTROL_PAR_VALUE)
+			
+			{width}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 3] := $mst_width_sld
+			
+			{eq}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 4] := $mst_eq_0_sld 
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 5] := $mst_eq_1_sld
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 6] := $mst_eq_2_sld
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 7] := $mst_eq_3_sld
+			
+			
+			
+			{ambi}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 8] := $mst_ambi_sld
+			
+			{punch}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 9] := $mst_pnch_sld
+			
+			{comp}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 10] := $mst_comp_sld
+			
+			{tape}
+			%single_mixer_preset[$array_pointer + ($count_4 * $NUM_PAR_PER_CHANNEL) + 11] := $mst_tape_sld
+		
+		end if
+		
+	end if
+	
+	inc($count_4)
+		
+	end while
+	
+	
+
+end function {}
+
+{ function async_complete }
+
+on async_complete
+	
+	{MIXER PRESET}
+	
+	{single preset loaded}
+	
+	if ($NI_ASYNC_ID = $single_preset_id)
+		
+		$single_preset_id := -1
+		
+		
+		if ($NI_ASYNC_EXIT_STATUS = 0)
+			message("Error: Mixer Preset not found!")
+		else
+			message("")
+			call load_mixer_preset
+		
+		end if
+	end if
+	
+end on
+
+{function } {}
+
+{ function vol_pan_send_slider_callbacks }
+
+on ui_control ($vol_0_sld)
+	$channel_touched := 0
+	$slider_value := $vol_0_sld
+	call change_vol_slider
+end on
+
+on ui_control ($vol_1_sld)
+	$channel_touched := 1
+	$slider_value := $vol_1_sld
+	call change_vol_slider
+end on
+
+on ui_control ($mst_vol_sld)
+	$channel_touched := $NUM_OF_CHANNELS
+	$slider_value := $mst_vol_sld
+	call change_vol_slider
+end on
+
+on ui_control ($pan_0_sld)
+	$channel_touched := 0
+	$slider_value := $pan_0_sld
+	call change_pan_slider
+end on
+
+on ui_control ($pan_1_sld)
+	$channel_touched := 1
+	$slider_value := $pan_1_sld
+	call change_pan_slider
+end on
+
+on ui_control ($send_0_sld)
+	$channel_touched := 0
+	$slider_value := $send_0_sld
+	call change_send_slider
+end on
+
+on ui_control ($send_1_sld)
+	$channel_touched := 1
+	$slider_value := $send_1_sld
+	call change_send_slider
+end on
+
+on ui_control ($mst_send_sld)
+	$channel_touched := $NUM_OF_CHANNELS
+	$slider_value := $mst_send_sld
+	call change_send_slider
+end on
+
+{function } {}
+
+{ function solo_mute_btn_callbacks }
+
+on ui_control ($solo_0_btn)
+	%solo_state[0] := $solo_0_btn
+	call solo_mute_channel
+end on
+
+on ui_control ($solo_1_btn)
+	%solo_state[1] := $solo_1_btn
+	call solo_mute_channel
+end on
+
+on ui_control ($solo_rvb_btn)
+	call solo_mute_channel
+end on
+
+on ui_control ($mute_0_btn)
+	%mute_state[0] := $mute_0_btn
+	call solo_mute_channel
+end on
+
+on ui_control ($mute_1_btn)
+	%mute_state[1] := $mute_1_btn
+	call solo_mute_channel
+end on
+
+on ui_control ($mute_rvb_btn)
+	call solo_mute_channel
+end on
+
+{function }  {}
+
+{ function reverb_channel_callbacks }
+
+on ui_control ($rvb_sld)
+	
+	if ($rvb_sld = $selected_ir_sample)
+		exit
+	end if
+	
+	$selected_ir_sample := $rvb_sld
+	
+	call change_ir_sample
+
+end on
+
+on ui_control ($rvb_vol_sld)
+	
+	if ($rvb_vol_sld = 89)
+		$value := 397000
+	else
+		$value := (%wurzel_zweidrittel[$rvb_vol_sld]*$cur_volume_verb)/1000
+	end if
+	
+	set_engine_par($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,$value,-1,$REVERB_SLOT,0)
+	set_control_par_str(get_ui_id($rvb_vol_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,-1,$REVERB_SLOT,0) & " dB")
+end on
+
+on ui_control ($rvb_0_btn)
+	$selected_ir_sample := 0
+	call change_ir_sample
+end on
+on ui_control ($rvb_1_btn)
+	$selected_ir_sample := 1
+	call change_ir_sample
+end on
+on ui_control ($rvb_2_btn)
+	$selected_ir_sample := 2
+	call change_ir_sample
+end on
+on ui_control ($rvb_3_btn)
+	$selected_ir_sample := 3
+	call change_ir_sample
+end on
+on ui_control ($rvb_4_btn)
+	$selected_ir_sample := 4
+	call change_ir_sample
+end on
+
+{function } {}
+
+{ function master_fx_callbacks }
+
+on ui_control ($mst_eq_0_sld)
+	set_engine_par($ENGINE_PAR_SEQ_LF_GAIN,$mst_eq_0_sld,-1,$MST_EQ_SLOT,1)
+	set_control_par_str(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_LF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+end on
+
+on ui_control ($mst_eq_1_sld)
+	set_engine_par($ENGINE_PAR_SEQ_LMF_GAIN,$mst_eq_1_sld,-1,$MST_EQ_SLOT,1)
+	set_control_par_str(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_LMF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+end on
+
+on ui_control ($mst_eq_2_sld)
+	set_engine_par($ENGINE_PAR_SEQ_HMF_GAIN,$mst_eq_2_sld,-1,$MST_EQ_SLOT,1)
+	set_control_par_str(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_HMF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+end on
+
+on ui_control ($mst_eq_3_sld)
+	set_engine_par($ENGINE_PAR_SEQ_HF_GAIN,$mst_eq_3_sld,-1,$MST_EQ_SLOT,1)
+	set_control_par_str(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_HF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+end on
+
+on ui_control ($mst_ambi_sld)
+	
+	{bypass}
+	if ($mst_ambi_sld = 0)
+		if (get_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,-1,$MST_AMBI_SLOT,1) = 0)
+			set_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,1,-1,$MST_AMBI_SLOT,1)
+		end if
+	else
+		if (get_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,-1,$MST_AMBI_SLOT,1) = 1)
+			set_engine_par($ENGINE_PAR_SEND_EFFECT_BYPASS,0,-1,$MST_AMBI_SLOT,1)
+		end if
+	end if
+	
+	if ($mst_ambi_sld < 50)
+		$value := ($mst_ambi_sld * ($AMBI_LEVEL_50) / 49)
+	else
+		$value := (($mst_ambi_sld - 50) * ($AMBI_LEVEL_100 - $AMBI_LEVEL_50) / (100 - 50)) + $AMBI_LEVEL_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,$value,-1,$MST_AMBI_SLOT,1)
+	set_control_par_str(get_ui_id($mst_ambi_sld),$CONTROL_PAR_LABEL,$mst_ambi_sld & " %")
+	
+end on
+
+on ui_control ($mst_pnch_sld)
+	
+	{bypass}
+	if ($mst_pnch_sld = 0)
+		if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_PNCH_SLOT,1) = 0)
+			set_engine_par($ENGINE_PAR_EFFECT_BYPASS,1,-1,$MST_PNCH_SLOT,1)
+		end if
+	else
+		if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_PNCH_SLOT,1) = 1)
+			set_engine_par($ENGINE_PAR_EFFECT_BYPASS,0,-1,$MST_PNCH_SLOT,1)
+		end if
+	end if
+	
+	{attack}
+	if ($mst_pnch_sld < 50)
+		$value := (($mst_pnch_sld) * ( $PUNCH_ATTACK_50 -  $PUNCH_ATTACK_0) / (49)) +  $PUNCH_ATTACK_0
+	else
+		$value := (($mst_pnch_sld - 50) * ($PUNCH_ATTACK_100 - $PUNCH_ATTACK_50) / (100 - 50)) + $PUNCH_ATTACK_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_TR_ATTACK,$value,-1,$MST_PNCH_SLOT,1)
+	
+	{sustain}
+	if ($mst_pnch_sld < 50)
+		$value := (($mst_pnch_sld) * ( $PUNCH_SUSTAIN_50 -  $PUNCH_SUSTAIN_0) / (49)) +  $PUNCH_SUSTAIN_0
+	else
+		$value := (($mst_pnch_sld - 50) * ($PUNCH_SUSTAIN_100 - $PUNCH_SUSTAIN_50) / (100 - 50)) + $PUNCH_SUSTAIN_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_TR_SUSTAIN,$value,-1,$MST_PNCH_SLOT,1)
+	
+	{output}
+	if ($mst_pnch_sld < 50)
+		$value := (($mst_pnch_sld) * ( $PUNCH_OUTPUT_50 -  $PUNCH_OUTPUT_0) / (49)) +  $PUNCH_OUTPUT_0
+	else
+		$value := (($mst_pnch_sld - 50) * ($PUNCH_OUTPUT_100 - $PUNCH_OUTPUT_50) / (100 - 50)) + $PUNCH_OUTPUT_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,$value,-1,$MST_PNCH_SLOT,1)
+	
+	
+	set_control_par_str(get_ui_id($mst_pnch_sld),$CONTROL_PAR_LABEL,$mst_pnch_sld & " %")
+end on
+
+on ui_control ($mst_comp_sld)
+	
+	{bypass}
+	if ($mst_comp_sld = 0)
+		if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_COMP_SLOT,1) = 0)
+			set_engine_par($ENGINE_PAR_EFFECT_BYPASS,1,-1,$MST_COMP_SLOT,1)
+		end if
+	else
+		if (get_engine_par($ENGINE_PAR_EFFECT_BYPASS,-1,$MST_COMP_SLOT,1) = 1)
+			set_engine_par($ENGINE_PAR_EFFECT_BYPASS,0,-1,$MST_COMP_SLOT,1)
+		end if
+	end if
+	
+	if ($mst_comp_sld < 50)
+		set_engine_par($ENGINE_PAR_SCOMP_THRESHOLD,($mst_comp_sld * ($SCOMP_THRESHOLD_50 - $SCOMP_THRESHOLD_0) / 50) + $SCOMP_THRESHOLD_0, -1,$MST_COMP_SLOT,1)
+		set_engine_par($ENGINE_PAR_SCOMP_MAKEUP,($mst_comp_sld * ($SCOMP_MAKEUP_50 - $SCOMP_MAKEUP_0) / 50) + $SCOMP_MAKEUP_0,-1,$MST_COMP_SLOT,1)
+	else
+		set_engine_par($ENGINE_PAR_SCOMP_THRESHOLD,(($mst_comp_sld - 50) * ($SCOMP_THRESHOLD_100 - $SCOMP_THRESHOLD_50) / 50) + $SCOMP_THRESHOLD_50, -1,$MST_COMP_SLOT,1)
+		set_engine_par($ENGINE_PAR_SCOMP_MAKEUP,(($mst_comp_sld - 50) * ($SCOMP_MAKEUP_100 - $SCOMP_MAKEUP_50) / 50) + $SCOMP_MAKEUP_50,-1,$MST_COMP_SLOT,1)
+	end if
+	
+	{parameter readout}
+	set_control_par_str(get_ui_id($mst_comp_sld),$CONTROL_PAR_LABEL,$mst_comp_sld & " %")
+	
+end on
+
+on ui_control ($mst_tape_sld)
+	
+	if ($mst_tape_sld < 50)
+		$value := (($mst_tape_sld) * ( $TAPE_GAIN_50 -  $TAPE_GAIN_0) / (49)) +  $TAPE_GAIN_0
+	else
+		$value := (($mst_tape_sld - 50) * ($TAPE_GAIN_100 - $TAPE_GAIN_50) / (100 - 50)) + $TAPE_GAIN_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_TP_GAIN,$value,-1,$MST_TAPE_SLOT,1)
+	
+	if ($mst_tape_sld < 50)
+		$value := (($mst_tape_sld) * ( $TAPE_WARMTH_50 -  $TAPE_WARMTH_0) / (49)) +  $TAPE_WARMTH_0
+	else
+		$value := (($mst_tape_sld - 50) * ($TAPE_WARMTH_100 - $TAPE_WARMTH_50) / (100 - 50)) + $TAPE_WARMTH_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_TP_WARMTH,$value,-1,$MST_TAPE_SLOT,1)
+	
+	{output}
+	if ($mst_tape_sld < 50)
+		$value := (($mst_tape_sld) * ( $TAPE_OUTPUT_50 -  $TAPE_OUTPUT_0) / (49)) +  $TAPE_OUTPUT_0
+	else
+		$value := (($mst_tape_sld - 50) * ($TAPE_OUTPUT_100 - $TAPE_OUTPUT_50) / (100 - 50)) + $TAPE_OUTPUT_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,$value,-1,$MST_TAPE_SLOT,1)
+	
+	{parameter readout}
+	set_control_par_str(get_ui_id($mst_tape_sld),$CONTROL_PAR_LABEL,$mst_tape_sld & " %")
+	
+end on
+
+{function } {}
+
+{ function various_ui_callbacks }
+
+on ui_control ($invert_btn)
+	set_engine_par($ENGINE_PAR_EFFECT_BYPASS,($invert_btn + 1) mod 2,-1,$INVERT_SLOT,1)
+end on
+
+on ui_control ($mst_width_sld)
+	set_engine_par($ENGINE_PAR_STEREO,$mst_width_sld,-1,$SPREAD_1_SLOT,1)
+	set_control_par_str(get_ui_id($mst_width_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_STEREO,-1,$SPREAD_1_SLOT,1))
+end on
+
+on ui_control ($channel_0_btn)
+	$selected_channel := 0
+	call change_channel
+end on
+
+on ui_control ($channel_1_btn)
+	$selected_channel := 1
+	call change_channel
+end on
+
+on ui_control ($rvb_channel_btn)
+	$selected_channel := 2
+	call change_channel
+end on
+
+on ui_control ($mst_channel_btn)
+	$selected_channel := 3
+	call change_channel
+end on
+
+on ui_control ($output_menu)
+	%channel_output[$selected_channel] := $output_menu
+	set_engine_par($ENGINE_PAR_OUTPUT_CHANNEL,$output_menu,-1,-1,$NI_BUS_OFFSET + $selected_channel)
+end on
+
+on ui_control ($channel_fx_0_sld)
+	
+	{drive}
+	%channel_fx_0_data[$selected_channel] := $channel_fx_0_sld
+	
+	{amount}
+	if ($channel_fx_0_sld < 50)
+		$value := (($channel_fx_0_sld) * ( $DRIVE_AMOUNT_50 -  $DRIVE_AMOUNT_0) / (49)) +  $DRIVE_AMOUNT_0
+	else
+		$value := (($channel_fx_0_sld - 50) * ($DRIVE_AMOUNT_100 - $DRIVE_AMOUNT_50) / (100 - 50)) + $DRIVE_AMOUNT_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_SHAPE,$value,-1,$DRIVE_SLOT,$NI_BUS_OFFSET + $selected_channel)
+	
+	{output}
+	if ($channel_fx_0_sld < 50)
+		$value := (($channel_fx_0_sld) * ( $DRIVE_OUTPUT_50 -  $DRIVE_OUTPUT_0) / (49)) +  $DRIVE_OUTPUT_0
+	else
+		$value := (($channel_fx_0_sld - 50) * ($DRIVE_OUTPUT_100 - $DRIVE_OUTPUT_50) / (100 - 50)) + $DRIVE_OUTPUT_50
+	end if
+	
+	set_engine_par($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,$value,-1,$DRIVE_SLOT,$NI_BUS_OFFSET + $selected_channel)
+	
+end on
+
+on ui_control ($channel_fx_1_sld)
+
+	%channel_fx_1_data[$selected_channel] := $channel_fx_1_sld
+	
+	$eq_morph_index_1 := $channel_fx_1_sld/10
+	$eq_morph_index_2 := $channel_fx_1_sld/10 +1
+	
+	if ($eq_morph_index_2 > 10)
+		$eq_morph_index_2 := 10
+	end if
+	
+	$count := 0
+	while($count < 9)
+		$eq_morph_value := ((%eq_morph_data[($eq_morph_index_2*9) + $count] - %eq_morph_data[($eq_morph_index_1*9) + $count]) * (($channel_fx_1_sld*10) mod 100))/100 + %eq_morph_data[($eq_morph_index_1*9) + $count]
+		set_engine_par(%eq_morph_engine_par[$count],$eq_morph_value,-1,$EQ_MORPH_SLOT_IDX,$NI_BUS_OFFSET + $selected_channel)
+		inc($count)
+	end while
+	
+end on
+
+on ui_control ($eq_0_sld)
+	%channel_eq_0[$selected_channel] := $eq_0_sld
+	set_engine_par($ENGINE_PAR_SEQ_LF_GAIN,$eq_0_sld,-1,$EQ_SLOT,$NI_BUS_OFFSET + $selected_channel)
+end on
+
+on ui_control ($eq_1_sld)
+	%channel_eq_1[$selected_channel] := $eq_1_sld
+	set_engine_par($ENGINE_PAR_SEQ_LMF_GAIN,$eq_1_sld,-1,$EQ_SLOT,$NI_BUS_OFFSET + $selected_channel)
+end on
+
+on ui_control ($eq_2_sld)
+	%channel_eq_2[$selected_channel] := $eq_2_sld
+	set_engine_par($ENGINE_PAR_SEQ_HMF_GAIN,$eq_2_sld,-1,$EQ_SLOT,$NI_BUS_OFFSET + $selected_channel)
+end on
+
+on ui_control ($eq_3_sld)
+	%channel_eq_3[$selected_channel] := $eq_3_sld
+	set_engine_par($ENGINE_PAR_SEQ_HF_GAIN,$eq_3_sld,-1,$EQ_SLOT,$NI_BUS_OFFSET + $selected_channel)
+end on
+
+on ui_control ($perf_0_sld)
+	set_controller(1,$perf_0_sld)
+	pgs_set_key_val(PERF_SLIDER_0,0,$perf_0_sld)
+end on
+
+
+{function } {}
+
+{ function mix_preset_callbacks }
+
+on ui_control ($export_preset_btn)
+	
+	call export_mixer_preset
+	save_array(%single_mixer_preset,0)
+	
+	$export_preset_btn := 0
+end on
+
+on ui_control ($mix_preset_menu)
+	
+	@mix_preset_path := @libary_path & "Library Data/Mixer Presets/" & !instrument_id_suffix[$INSTRUMENT_ID] & get_menu_item_str(get_ui_id($mix_preset_menu),$mix_preset_menu) & ".nka"
+	$single_preset_id := load_array_str(%single_mixer_preset,@mix_preset_path)
+	
+	pgs_set_key_val(MIX_PRESET,0,$mix_preset_menu)
+end on
+
+on ui_control ($mix_preset_prev_btn)
+	
+	if ($mix_preset_menu = 0)
+		$mix_preset_menu := $NUM_OF_FACTORY_MIXPRESETS - 1
+	else
+		dec($mix_preset_menu)
+	end if
+	
+	@mix_preset_path := @libary_path & "Library Data/Mixer Presets/" & !instrument_id_suffix[$INSTRUMENT_ID] & get_menu_item_str(get_ui_id($mix_preset_menu),$mix_preset_menu) & ".nka"
+	$single_preset_id := load_array_str(%single_mixer_preset,@mix_preset_path)
+	
+	$mix_preset_prev_btn := 0
+	
+	pgs_set_key_val(MIX_PRESET,0,$mix_preset_menu)
+	
+end on
+
+on ui_control ($mix_preset_next_btn)
+	
+	if ($mix_preset_menu = $NUM_OF_FACTORY_MIXPRESETS - 1)
+		$mix_preset_menu := 0
+	else
+		inc($mix_preset_menu)
+	end if
+	
+	@mix_preset_path := @libary_path & "Library Data/Mixer Presets/" & !instrument_id_suffix[$INSTRUMENT_ID] & get_menu_item_str(get_ui_id($mix_preset_menu),$mix_preset_menu) & ".nka"
+	$single_preset_id := load_array_str(%single_mixer_preset,@mix_preset_path)
+	
+	$mix_preset_next_btn := 0
+	
+	pgs_set_key_val(MIX_PRESET,0,$mix_preset_menu)
+	
+end on
+
+{function } {}
+
+{ function pgs_callback }
+
+on pgs_changed
+	
+	wait(1)
+	
+	if (pgs_key_exists(INSTRUMENT_ID))
+		$INSTRUMENT_ID := pgs_get_key_val(INSTRUMENT_ID,0)
+	end if
+	
+	if (pgs_key_exists(MIX_PRESET) and pgs_get_key_val(ACTION_TYPE,0) = 2)
+		
+		$mix_preset_menu := pgs_get_key_val(MIX_PRESET,0)
+		
+		@mix_preset_path := @libary_path & "Library Data/Mixer Presets/" & !instrument_id_suffix[$INSTRUMENT_ID] & get_menu_item_str(get_ui_id($mix_preset_menu),$mix_preset_menu) & ".nka"
+		$single_preset_id := load_array_str(%single_mixer_preset,@mix_preset_path)
+		
+		pgs_set_key_val(ACTION_TYPE,0,-1)
+		
+	end if
+	
+end on
+
+{function } {}
+
+{ function controller_callback }
+on controller
+	if ($CC_NUM = 1)
+		$perf_0_sld := %CC[$CC_NUM]
+	end if
+end on
+
+{function } {}
+
+{ function persistence_changed }
+
+on persistence_changed
+	
+	
+	{pgs}
+	pgs_set_key_val(MIX_PRESET,0,$mix_preset_menu)
+	pgs_set_key_val(PERF_SLIDER_0,0,$perf_0_sld)
+	
+	{show correct channel}	
+	if ($selected_channel < $NUM_OF_CHANNELS)
+		
+		{channel}
+		$count := 0
+		while ($count < num_elements(%channel_fx_ids))
+			set_control_par(%channel_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+			inc($count)
+		end while
+		
+		set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,0)
+		
+	else
+		
+		if ($selected_channel = $NUM_OF_CHANNELS)
+			
+			{reverb}
+			$count := 0
+			while ($count < num_elements(%rvb_btn_ids))
+				set_control_par(%rvb_btn_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+				set_control_par(%rvb_lbl_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+				inc($count)
+			end while
+			
+			set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,1)
+			
+		else
+		
+			{master}
+			$count := 0
+			while ($count < num_elements(%master_fx_ids))
+				set_control_par(%master_fx_ids[$count],$CONTROL_PAR_HIDE,$HIDE_PART_NOTHING)
+				inc($count)
+			end while
+			
+			set_control_par(get_ui_id($channel_fx_lbl),$CONTROL_PAR_PICTURE_STATE,2)
+			
+		end if
+	
+	end if
+	
+	call change_channel
+	
+	{output channel}
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+		set_engine_par($ENGINE_PAR_OUTPUT_CHANNEL,%channel_output[$count],-1,-1,$NI_BUS_OFFSET+$count)
+		inc($count)
+	end while
+	
+	{parameter readout}
+
+	{vol, pan and send sliders}
+	$count := 0
+	while ($count < $NUM_OF_CHANNELS)
+		
+		{vol}
+		set_control_par_str(%vol_slider_ids[$count],$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,...
+		-1,$SPREAD_1_SLOT,$NI_BUS_OFFSET+$count) & " dB")
+		
+		{pan}
+		set_control_par_str(%pan_slider_ids[$count],$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_PAN,...
+		-1,-1,$NI_BUS_OFFSET + $count))
+		
+		{send}
+		set_control_par_str(%send_slider_ids[$count],$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SENDLEVEL_0,...
+		-1,$SEND_SLOT,$NI_BUS_OFFSET + $count) & " dB")
+		
+		inc($count)
+	end while
+	
+	{master vol}
+	set_control_par_str(get_ui_id($mst_vol_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_INSERT_EFFECT_OUTPUT_GAIN,-1,$SPREAD_1_SLOT,1) & " dB")
+	
+	{master send}
+	set_control_par_str(get_ui_id($mst_send_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SENDLEVEL_0,-1,$SEND_SLOT,1) & " dB")
+	
+	{master width}
+	set_control_par_str(get_ui_id($mst_width_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_STEREO,-1,$SPREAD_1_SLOT,1))
+	
+	{rvb vol}
+	set_control_par_str(get_ui_id($rvb_vol_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEND_EFFECT_OUTPUT_GAIN,-1,$REVERB_SLOT,0) & " dB")
+	
+	{master eq}
+	set_control_par_str(get_ui_id($mst_eq_0_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_LF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+	set_control_par_str(get_ui_id($mst_eq_1_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_LMF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+	set_control_par_str(get_ui_id($mst_eq_2_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_HMF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+	set_control_par_str(get_ui_id($mst_eq_3_sld),$CONTROL_PAR_LABEL,get_engine_par_disp($ENGINE_PAR_SEQ_HF_GAIN,-1,$MST_EQ_SLOT,1) & " dB")
+	
+	{master ambi and punch}
+	set_control_par_str(get_ui_id($mst_ambi_sld),$CONTROL_PAR_LABEL,$mst_ambi_sld & " %")
+	set_control_par_str(get_ui_id($mst_pnch_sld),$CONTROL_PAR_LABEL,$mst_pnch_sld & " %")
+	
+	{master comp and tape}
+	set_control_par_str(get_ui_id($mst_comp_sld),$CONTROL_PAR_LABEL,$mst_comp_sld & " %")
+	set_control_par_str(get_ui_id($mst_tape_sld),$CONTROL_PAR_LABEL,$mst_tape_sld & " %")
+	
+	{ir sample}
+	set_control_par_str(get_ui_id($rvb_sld),$CONTROL_PAR_LABEL,!ir_sample_names[$rvb_sld])
+
+	
+end on
+
+{function } {}
+
+{END OF SCRIPT}
