@@ -1855,6 +1855,7 @@ on init
 	
 	declare polyphonic $played_group
 	declare polyphonic $played_tuning
+	declare $tanpura_tuning
 	declare polyphonic $art_interval
 	
 	declare polyphonic $original_pitch_class_tonal
@@ -3134,6 +3135,20 @@ function stop_sequencer
 	
 end function {}
 
+function get_tuning_tanpura
+	
+	select ($tuning_menu)
+		
+		case 0 {equal}
+			$tanpura_tuning := 0
+		case 1 {just}
+			$tanpura_tuning := %just_tuning_data[($tanpura_played_note + (12-$root_note_sld)) mod 12]
+		case 2 {scale}
+			$tanpura_tuning := %scale_tuning_data[($tanpura_played_note mod 12) + $scale_sld * 12]
+	end select
+
+end function {}
+
 {TICK RECEIVED}
 function tick_received
 	
@@ -3190,6 +3205,9 @@ function tick_received
 			
 			{velocity}
 			$tanpura_played_velo := 64
+
+			{tuning}
+			call get_tuning_tanpura
 			
 			{TRIGGER NOTE}
 			$new_id := play_note($tanpura_played_note,$tanpura_played_velo,0,$DURATION_SIXTEENTH)
@@ -3198,6 +3216,7 @@ function tick_received
 			set_event_par($new_id,$EVENT_PAR_1,$tanpura_played_group) {group}
 			set_event_par($new_id,$EVENT_PAR_2,1) {1 if sequencer note, 2 if played notes}
 			set_event_par($new_id,$EVENT_PAR_3,$DURATION_SIXTEENTH) {duration}
+			set_event_par($new_id,$EVENT_PAR_TUNE, $tanpura_tuning * 1000) {shruti tuning}
 				
 			inc($play_count)
 	
@@ -3234,139 +3253,25 @@ function tick_received
 			
 			{velocity}
 			$tanpura_played_velo := 64
+
+			{tuning}
+			call get_tuning_tanpura
 			
 			{TRIGGER NOTE}
 			$new_id := play_note($tanpura_played_note,$tanpura_played_velo,0,$DURATION_SIXTEENTH)
+			call get_tuning_tanpura
 			change_vol($new_id,$tanpura_played_vol,0)
 			set_event_par($new_id,$EVENT_PAR_0,$tanpura_played_wait) {delay time}
 			set_event_par($new_id,$EVENT_PAR_1,$tanpura_played_group) {group}
 			set_event_par($new_id,$EVENT_PAR_2,1) {1 if sequencer note, 2 if played notes}
 			set_event_par($new_id,$EVENT_PAR_3,$DURATION_SIXTEENTH) {duration}
+			set_event_par($new_id,$EVENT_PAR_TUNE, $tanpura_tuning * 1000) {shruti tuning}
 			
 		end if
 		
 		inc($play_count)
 		
 	end while
-	
-end function {}
-
-function fem_tick_received
-	
-	{get tick counter}
-	if ($sync_btn = 0 or $sync_position = 0)
-		{advance counter}
-		inc($fem_tick_counter)
-		if ($fem_tick_counter >= $fem_played_pattern_length_ticks)
-			$fem_tick_counter := 0
-		end if
-	else
-		{Host Tempo}
-		if ($sync_position = 1)
-			if ($NI_SONG_POSITION < 0)
-				exit
-			else
-				{normal time}
-				if ($half_time_btn = 0 and $double_time_btn = 0)
-					$fem_tick_counter := ($NI_SONG_POSITION/(960/($TICKS_PER_BEAT))) mod $fem_played_pattern_length_ticks
-				end if
-				
-				{half time}
-				if ($half_time_btn = 1)
-					$fem_tick_counter := ($NI_SONG_POSITION/(960/($TICKS_PER_BEAT/2))) mod $fem_played_pattern_length_ticks
-				end if
-				
-				{double time}
-				if ($double_time_btn = 1)
-					$fem_tick_counter := ($NI_SONG_POSITION/(960/($TICKS_PER_BEAT*2))) mod $fem_played_pattern_length_ticks
-				end if
-					
-			end if
-		end if
-	end if
-	
-	{reset $fem_play_first_beat}
-	if ($fem_tick_counter > $TICKS_PER_BEAT)
-		$fem_play_first_beat := 0
-	end if
-	
-	{alternate play buffer - triggers notes only once and only on position 0}
-	if ($fem_tick_counter = 0 and $fem_play_first_beat = 1)
-		$fem_play_count := 0
-		while (%fem_alt_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 0] = 0 and $fem_play_count < num_elements(%fem_alt_play_buffer) / $NUM_NOTE_PAR)
-				
-			{randomize onset}
-			$fem_tanpura_played_wait := random(0,$randomize_time_abs)
-			
-			{group}
-			$fem_tanpura_played_group := %fem_alt_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 2]
-			
-			{note}
-			$fem_tanpura_played_note := %fem_alt_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 1]
-			
-			{velocity}
-			$fem_tanpura_played_velo := 64
-			
-			{TRIGGER NOTE}
-			$fem_new_id := play_note($fem_tanpura_played_note,$fem_tanpura_played_velo,0,$DURATION_SIXTEENTH)
-			change_vol($fem_new_id,$fem_tanpura_played_vol,0)
-			set_event_par($fem_new_id,$EVENT_PAR_0,$fem_tanpura_played_wait) {delay time}
-			set_event_par($fem_new_id,$EVENT_PAR_1,$fem_tanpura_played_group) {group}
-			set_event_par($fem_new_id,$EVENT_PAR_2,1) {1 if sequencer note, 2 if played notes}
-			set_event_par($fem_new_id,$EVENT_PAR_3,$DURATION_SIXTEENTH) {duration}
-				
-			inc($fem_play_count)
-	
-		end while
-	
-	end if
-			
-	
-	{play buffer}
-	$fem_play_count := 0
-	while (%fem_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 0] >= 0  and $fem_play_count < num_elements(%fem_play_buffer) / $NUM_NOTE_PAR)
-		
-		if (%fem_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 0] / (960/$TICKS_PER_BEAT) = $fem_tick_counter)
-			
-			{allowed the note per se}
-			$trigger_note := 1
-			
-			{get wait time in ticks, i.e. time between (960/$TICKS_PER_BEAT) ticks grid}
-			$fem_tanpura_played_wait := %fem_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 0] mod (960/$TICKS_PER_BEAT)
-			{convert to microseconds}
-			if ($sync_btn = 0)
-				$fem_tanpura_played_wait := $fem_tanpura_played_wait * ((60000000 / $tempo_vedit * 1000 / $TICKS_PER_BEAT / 10) / (960/$TICKS_PER_BEAT))
-			else
-				$fem_tanpura_played_wait := ticks_to_ms($fem_tanpura_played_wait)
-			end if
-			{randomize}
-			$fem_tanpura_played_wait := $fem_tanpura_played_wait + random(0,$randomize_time_abs)
-			
-			{get group}
-			$fem_tanpura_played_group := %fem_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 2]
-			
-			{note}
-			$fem_tanpura_played_note := %fem_play_buffer[$fem_play_count * $NUM_NOTE_PAR + 1]
-			
-			{velocity}
-			$fem_tanpura_played_velo := 64
-			
-			{TRIGGER NOTE}
-			$new_id := play_note($fem_tanpura_played_note,$fem_tanpura_played_velo,0,$DURATION_SIXTEENTH)
-			change_vol($new_id,$fem_tanpura_played_vol,0)
-			set_event_par($new_id,$EVENT_PAR_0,$fem_tanpura_played_wait) {delay time}
-			set_event_par($new_id,$EVENT_PAR_1,$fem_tanpura_played_group) {group}
-			set_event_par($new_id,$EVENT_PAR_2,1) {1 if sequencer note, 2 if played notes}
-			set_event_par($new_id,$EVENT_PAR_3,$DURATION_SIXTEENTH) {duration}
-			
-		end if
-		
-		inc($fem_play_count)
-		
-	end while
-		
-	
-	
 	
 end function {}
 
@@ -6485,21 +6390,11 @@ on listener
 	{Own Tempo}
 	if ($NI_SIGNAL_TYPE = $NI_SIGNAL_TIMER_MS and $sync_btn = 0 and ($seq_running = 1 or $phrase_running = 1))
 		call tick_received
-		
-		{if ($INSTRUMENT_ID = $TANPURA_ID)
-			call fem_tick_received
-		end if}
-		
 	end if
 	
 	{Host Tempo}
 	if ($NI_SIGNAL_TYPE = $NI_SIGNAL_TIMER_BEAT and $sync_btn = 1 and ($seq_running = 1 or $phrase_running = 1))
 		call tick_received
-		
-		{if ($INSTRUMENT_ID = $TANPURA_ID)
-			call fem_tick_received
-		end if}
-		
 	end if
 	
 	{display host tempo}
