@@ -3,6 +3,8 @@ India Melodic - Articulation
 Author: Native Instruments
 Written by: Nikolas Jeroma
 Modified: November 18, 2015
+Hacked by: Krishna Bhamidipati
+Last hack: January 18, 2021
 *************************************************}
 
 on init
