@@ -1855,6 +1855,7 @@ on init
 	
 	declare polyphonic $played_group
 	declare polyphonic $played_tuning
+	declare $tanpura_tuning
 	declare polyphonic $art_interval
 	
 	declare polyphonic $original_pitch_class_tonal
@@ -3134,6 +3135,20 @@ function stop_sequencer
 	
 end function {}
 
+function get_tuning_tanpura
+	
+	select ($tuning_menu)
+		
+		case 0 {equal}
+			$tanpura_tuning := 0
+		case 1 {just}
+			$tanpura_tuning := %just_tuning_data[($tanpura_played_note + (12-$root_note_sld)) mod 12]
+		case 2 {scale}
+			$tanpura_tuning := %scale_tuning_data[($tanpura_played_note mod 12) + $scale_sld * 12]
+	end select
+
+end function {}
+
 {TICK RECEIVED}
 function tick_received
 	
@@ -3190,6 +3205,9 @@ function tick_received
 			
 			{velocity}
 			$tanpura_played_velo := 64
+
+			{tuning}
+			call get_tuning_tanpura
 			
 			{TRIGGER NOTE}
 			$new_id := play_note($tanpura_played_note,$tanpura_played_velo,0,$DURATION_SIXTEENTH)
@@ -3198,6 +3216,7 @@ function tick_received
 			set_event_par($new_id,$EVENT_PAR_1,$tanpura_played_group) {group}
 			set_event_par($new_id,$EVENT_PAR_2,1) {1 if sequencer note, 2 if played notes}
 			set_event_par($new_id,$EVENT_PAR_3,$DURATION_SIXTEENTH) {duration}
+			set_event_par($new_id,$EVENT_PAR_TUNE, $tanpura_tuning * 1000) {shruti tuning}
 				
 			inc($play_count)
 	
@@ -3234,14 +3253,19 @@ function tick_received
 			
 			{velocity}
 			$tanpura_played_velo := 64
+
+			{tuning}
+			call get_tuning_tanpura
 			
 			{TRIGGER NOTE}
 			$new_id := play_note($tanpura_played_note,$tanpura_played_velo,0,$DURATION_SIXTEENTH)
+			call get_tuning_tanpura
 			change_vol($new_id,$tanpura_played_vol,0)
 			set_event_par($new_id,$EVENT_PAR_0,$tanpura_played_wait) {delay time}
 			set_event_par($new_id,$EVENT_PAR_1,$tanpura_played_group) {group}
 			set_event_par($new_id,$EVENT_PAR_2,1) {1 if sequencer note, 2 if played notes}
 			set_event_par($new_id,$EVENT_PAR_3,$DURATION_SIXTEENTH) {duration}
+			set_event_par($new_id,$EVENT_PAR_TUNE, $tanpura_tuning * 1000) {shruti tuning}
 			
 		end if
 		
