@@ -101,6 +101,7 @@ on init
 	declare $last_random_group := -1
 	
 	declare $played_note
+	declare $played_tune
 	declare $played_note_tumbi_rel
 	declare $played_velo
 	declare $played_grp
@@ -691,6 +692,7 @@ on note
 		$played_grp := get_event_par($EVENT_ID,$EVENT_PAR_1)
 		$played_vol := get_event_par($EVENT_ID,$EVENT_PAR_VOLUME)
 		$played_note := $EVENT_NOTE + (random(0,1) * 12)
+		$played_tune := get_event_par($EVENT_ID,$EVENT_PAR_TUNE)
 		$played_string := $played_grp
 		$played_duration := get_event_par($EVENT_ID,$EVENT_PAR_3)
 		
@@ -709,6 +711,7 @@ on note
 			end if
 			
 			%tanpura_note_ids[$played_string] := play_note($played_note,$played_velo,0,$played_duration)
+			change_tune(%tanpura_note_ids[$played_string],$played_tune,0)
 			set_event_par_arr(%tanpura_note_ids[$played_string],$EVENT_PAR_ALLOW_GROUP,1, $played_grp)
 			set_event_mark(%tanpura_note_ids[$played_string],$MARK_1)
 			
