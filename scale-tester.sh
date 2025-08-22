@@ -1,13 +1,25 @@
 #!/bin/zsh
-# This script is equivalent to the logic found in 
-# the India MEL Slot 2 function change_scale. It is extracted
-# here for easier testing because the cycolmatic complexity of 
-# just reading it is quite high!!
+#
+# This script extracts the core scale conversion logic from the 
+# India MEL Slot 2 function `change_scale`. The original function
+# is quite complex with many branching conditions, so this 
+# simplified version makes it easier to test and understand.
 #
 # Usage:
 # ./scale-tester.sh <7 space separated values, either 0,1,2>
+# where 0,1,2 can represent scale degree variants (I and V are fixed, others have 2-3 options)
+#
+# Idx | Degree | Variants | Chromatic Pos | Notes Area
+# ----|--------|----------|---------------|------------
+#  0  |   I    |  fixed   |       0       |     C
+#  1  |   II   |  0,1,2   |      1,2      |   Db/D  
+#  2  |   III  |  0,1,2   |     2,3,4     |  D/Eb/E
+#  3  |   IV   |   0,1    |      5,6      |   F/Gb
+#  4  |   V    |  fixed   |       7       |     G
+#  5  |   VI   |  0,1,2   |    8,9,10     | Ab/A/Bb
+#  6  |   VII  |  0,1,2   |    9,10,11    | A/Bb/B
 # 
-# for example for Asavari
+# For example, for Asavari
 # ./scale-tester.sh 0 1 1 0 0 0 1
 
 declare -A notes_data
@@ -21,13 +33,11 @@ notes_data[4]=$5
 notes_data[5]=$6
 notes_data[6]=$7
 
-#RHS:
-#copy into %scale_data, 0: in scale, 1: not in scale
+# Convert scale degree variants (0,1,2) → chromatic semitone binary mapping (0,1)
+# 0=note included, 1=note excluded from final scale
 
 #I
-scale_data[0]=0
-
-#0 means in scale
+scale_data[0]=0  #C (root, always included)
 
 #II
 if ((notes_data[1] == 0)); then #Db
@@ -40,16 +50,14 @@ if ((notes_data[1] == 1)); then #D
 	scale_data[2]=0
 fi
 
-if ((notes_data[1] == 2)); then #D
+if ((notes_data[1] == 2)); then #D♯
 	scale_data[1]=1
 	scale_data[2]=1
 	scale_data[3]=0
 	scale_data[4]=0
 fi
 
-
 #III
-
 if ((notes_data[2] == 0)); then #D
 	scale_data[2]=0
 	scale_data[3]=1
@@ -67,16 +75,16 @@ if ((notes_data[2] == 2 && notes_data[1] != 2)); then #E
 fi
 
 #IV
-if ((notes_data[3] == 0)); then #i.e. F
+if ((notes_data[3] == 0)); then #F
 	scale_data[5]=0
 	scale_data[6]=1
-else
+else  #F♯
 	scale_data[5]=1
 	scale_data[6]=0
 fi
 
 #V
-scale_data[7]=0
+scale_data[7]=0  #G (fifth, always included)
 
 #VI
 if ((notes_data[5] == 0)); then #Ab
@@ -89,7 +97,7 @@ if ((notes_data[5] == 1)); then #A
 	scale_data[9]=0
 fi
 
-if ((notes_data[5] == 2)); then #A
+if ((notes_data[5] == 2)); then #A♯
 	scale_data[8]=1
 	scale_data[9]=1
 	scale_data[10]=0
@@ -97,7 +105,7 @@ if ((notes_data[5] == 2)); then #A
 fi
 
 #VII
-if ((notes_data[6] == 0)); then #0
+if ((notes_data[6] == 0)); then #A
 	scale_data[9]=0
 	scale_data[10]=1
 	scale_data[11]=1
